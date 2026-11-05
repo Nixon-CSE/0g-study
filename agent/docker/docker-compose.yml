@@ -1,0 +1,7 @@
+services:
+  ember:
+    build: { context: .., dockerfile: docker/Dockerfile }
+    ports: ["7777:7777"]
+    env_file: ../.env
+    volumes:
+      - ../examples/default-agent:/agent

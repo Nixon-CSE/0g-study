@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ── World Mod design tokens (see /DESIGN.md) ───────────────────────── */
+  --bone: #e9e9e6;
+  --paper: #f6f6f4;
+  --paper-sunk: #e2e2de;
+  --ink: #0d0d0f;
+  --ink-raised: #1b1b1f;
+  --foreground: #131315;
+  --muted: #56565e;
+  --subtle: #63636b;
+  --on-ink: #f4f4f1;
+  --on-ink-muted: #a0a0a8;
+  --mint: #c7e6da;       --mint-ink: #1d5b49;
+  --lilac: #ded0f3;      --lilac-ink: #5b3d8c;
+  --butter: #f6dcab;     --butter-ink: #7a5013;
+  --positive: #1f6b55;   --caution: #7a5013;   --negative: #a8372f;
+
+  --r-panel: 30px;
+  --r-card: 22px;
+  --r-inner: 16px;
+  --lift: 0 1px 2px rgb(19 19 21 / 0.04), 0 10px 28px -14px rgb(19 19 21 / 0.22);
+  --lift-high: 0 2px 6px rgb(19 19 21 / 0.06), 0 22px 48px -20px rgb(19 19 21 / 0.3);
+
+  /* ── Legacy --bf-* aliases, remapped so existing components inherit the new world ── */
+  --bf-tertiary:   var(--bone);        /* app body bg */
+  --bf-primary:    var(--paper-sunk);  /* sidebar / nav */
+  --bf-quaternary: var(--paper);       /* panel */
+  --bf-secondary:  var(--paper);       /* raised surface */
+  --bf-quinary:    #dcdcd7;            /* hover / divider hover */
+
+  --bf-white:      var(--foreground);  /* "white" was the primary text colour */
+  --bf-blanche:    var(--on-ink);
+  --bf-gray:       var(--muted);
+  --bf-symbol:     var(--subtle);
+  --bf-senary:     var(--subtle);
+
+  /* No accent colour in this system: pressables are ink, machine judgement is lilac, "good" is mint. */
+  --bf-accent:     var(--ink);
+  --bf-plum:       var(--ink);
+  --bf-fire:       var(--lilac-ink);
+  --bf-banana:     var(--mint-ink);
+  --bf-yellow:     var(--butter-ink);
+  --bf-red:        var(--negative);
+
+  --bf-chat-input: var(--paper);
+  --bf-border:     rgba(19, 19, 21, 0.09);
+
+  --bf-brand-hero-gradient: none;
+}
+
+/* Tailwind white/black tints, redirected: "white/N" meant light-on-dark. */
+.on-ink { color: var(--on-ink); }
+
+.lift { box-shadow: var(--lift); }
+.lift-high { box-shadow: var(--lift-high); }
+.panel { border-radius: var(--r-panel); }
+.card { border-radius: var(--r-card); }
+
+/* Figures: one weight, tight tracking, tabular. */
+.figure { font-weight: 600; line-height: 0.95; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
+.unit { font-size: max(10px, 0.34em); font-weight: 600; letter-spacing: 0.02em; opacity: 0.72; margin-left: 0.15em; }
+.tag { font-size: 11px; font-weight: 500; line-height: 1.2; letter-spacing: 0.005em; color: var(--subtle); }
+.tabular { font-variant-numeric: tabular-nums; }
+.data { font-family: "Geist Mono", ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* Motion: press sinks, arrival settles. Both only when motion is allowed. */
+@media (prefers-reduced-motion: no-preference) {
+  .interactive { transition: background-color 200ms ease-out, color 200ms ease-out, box-shadow 200ms ease-out, transform 160ms ease-out; }
+  .interactive:active { transform: scale(0.975); }
+  @keyframes settle {
+    0% { opacity: 0.001; transform: translateY(-10px); }
+    100% { opacity: 1; transform: none; }
+  }
+  .settle > * { animation: settle 420ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+  .settle > *:nth-child(2) { animation-delay: 60ms; }
+  .settle > *:nth-child(3) { animation-delay: 120ms; }
+  .settle > *:nth-child(4) { animation-delay: 180ms; }
+}
+
+:focus-visible { outline: 2px solid var(--foreground); outline-offset: 2px; }
+.on-ink :focus-visible { outline-color: var(--on-ink); }
+
+::selection {
+  background: var(--lilac);
+  color: var(--lilac-ink);
+}
+::-moz-selection {
+  background: var(--lilac);
+  color: var(--lilac-ink);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bf-tertiary);
+  color: var(--bf-white);
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.625;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+::-webkit-scrollbar { width: 7px; }
+::-webkit-scrollbar-thumb { background: var(--paper-sunk); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Range input: filled segment (left of thumb) uses brand plum — used with --temperature-pct on the input */
+input[type="range"].bf-temperature-range::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--bf-plum) 0%,
+    var(--bf-plum) var(--temperature-pct, 35%),
+    var(--bf-quinary) var(--temperature-pct, 35%),
+    var(--bf-quinary) 100%
+  );
+}
+input[type="range"].bf-temperature-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  background: var(--bf-plum);
+  border: 2px solid var(--bf-tertiary);
+  margin-top: -0.1875rem;
+  box-shadow: 0 0 0 1px var(--bf-border);
+  cursor: pointer;
+}
+input[type="range"].bf-temperature-range::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--bf-quinary);
+}
+input[type="range"].bf-temperature-range::-moz-range-progress {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--bf-plum);
+}
+input[type="range"].bf-temperature-range::-moz-range-thumb {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: none;
+  border-radius: 50%;
+  background: var(--bf-plum);
+  box-shadow: 0 0 0 1px var(--bf-border);
+  cursor: pointer;
+}
+input[type="range"].bf-temperature-range:focus {
+  outline: none;
+}
+input[type="range"].bf-temperature-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--bf-tertiary), 0 0 0 4px var(--bf-plum);
+}
+input[type="range"].bf-temperature-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 2px var(--bf-tertiary), 0 0 0 4px var(--bf-plum);
+}

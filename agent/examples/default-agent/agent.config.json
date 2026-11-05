@@ -1,0 +1,39 @@
+{
+  "name": "Ember",
+  "id": "ember-default",
+  "llm": {
+    "provider": "zerog-router"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "open"
+    },
+    "web": {
+      "enabled": true,
+      "path": "/chat"
+    }
+  },
+  "tools": {
+    "builtin": {
+      "webFetch": {
+        "enabled": true
+      },
+      "webSearch": {
+        "enabled": false,
+        "provider": "tavily"
+      },
+      "studyTools": {
+        "enabled": true
+      }
+    }
+  },
+  "evolution": {
+    "mode": "suggest",
+    "interests": [
+      "search",
+      "github",
+      "calendar"
+    ]
+  }
+}

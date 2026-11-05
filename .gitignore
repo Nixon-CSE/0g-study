@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Build output
+.next/
+**/out/
+build/
+**/build/
+coverage/
+**/.cache/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Misc
+*.pem
+.eslintcache
+**/.eslintcache
+web/build
+
+agent/bun.lock
+app/bun.lock
+/docs
+/.playwright-mcp
+/app/.playwright-mcp
+*.png
+
+# Orchestration scratch files (dep-batching during multi-agent dev)
+backend/.pending-deps.json
+backend/.storage-mock/
+
+# Playwright + drive artifacts
+/app/page-*.yml
+/tmp/pw-test/
+
+# Local-only Claude settings
+/.claude/settings.json
+
+# Contract build artifacts (committed: abi/ + deployments/)
+contracts/cache/
+contracts/artifacts/
+contracts/typechain-types/
+
+# Voice worker (Pipecat) Python artifacts
+backend/voice-worker/.venv/
+backend/voice-worker/__pycache__/
+backend/voice-worker/*.pyc
+backend/voice-worker/.pytest_cache/
+!app/public/*.png

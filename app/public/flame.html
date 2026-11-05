@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>flame</title>
+<style>
+  html, body { width:100%; height:100%; overflow:hidden; margin:0; padding:0; background:transparent; user-select:none; }
+  * { -webkit-tap-highlight-color: rgba(255,255,255,0); }
+  #canvas { position:absolute; inset:0; cursor:pointer; }
+  #canvas canvas { display:block; }
+</style>
+</head>
+<body>
+<div id="canvas" style="filter: hue-rotate(245deg) saturate(1.1) contrast(1.15)"></div>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@4.8.9/dist/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi-filters@2.7.1/dist/pixi-filters.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.3/TweenMax.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.3/plugins/PixiPlugin.min.js"></script>
+<script>
+// Merge pixi-filters into PIXI.filters namespace (CDN exposes as window.PIXI.filters already in v2.x)
+(function(){
+  if (window.PIXI && !PIXI.filters.AdvancedBloomFilter && window.__PIXI_FILTERS) {
+    Object.assign(PIXI.filters, window.__PIXI_FILTERS);
+  }
+})();
+
+var pixelate = false;
+var background = false;
+
+function Ember(colors, app, pixelate) {
+  this.emberBlobs = [];
+  this.embers = new PIXI.Container();
+  if (pixelate) this.embers.filters = [new PIXI.filters.PixelateFilter()];
+  var self = this;
+  colors.forEach(function(color){
+    var circle = new PIXI.Graphics();
+    circle.lineStyle(0);
+    circle.beginFill(color, 1);
+    circle.drawCircle(0, 0, 10);
+    circle.endFill();
+    self.emberBlobs.push(app.renderer.generateTexture(circle));
+  });
+  setInterval(function(){ self.addEmber(); }, 300);
+}
+Ember.prototype.stoke = function(){
+  var amount = 40 + Math.round(Math.random()*20);
+  for (var i = 0; i < amount; i++) this.addEmber();
+};
+Ember.prototype.makeBlob = function(){
+  var texture = this.emberBlobs[Math.floor(Math.random()*this.emberBlobs.length)];
+  var blob = new PIXI.Sprite(texture);
+  blob.anchor.set(0.5);
+  var s = Math.random();
+  blob.scale.set(0.4*s, 0.5*s);
+  return blob;
+};
+Ember.prototype.addEmber = function(){
+  var t = this.time * (0.3 + Math.random()*0.6);
+  var blob = this.makeBlob();
+  this.embers.addChild(blob);
+  var bezier = [
+    {x:(Math.random()*100)-50, y:-100},
+    {x:Math.random()*200-100, y:-100+Math.random()*-20},
+    {x:Math.random()*200-100, y:-100+Math.random()*-50},
+    {x:Math.random()*200-100, y:-200+Math.random()*-50},
+    {x:Math.random()*300-150, y:-250+Math.random()*-100},
+    {x:Math.random()*500-250, y:-500+Math.random()*-150}
+  ];
+  var self = this;
+  TweenMax.to(blob, t/2, { delay:t/2, ease:Power1.easeOut, alpha:0 });
+  TweenMax.to(blob.position, t, {
+    ease:Power1.easeOut, bezier:bezier,
+    onComplete: function(){ self.embers.removeChild(blob); blob=null; }
+  });
+};
+Object.defineProperty(Ember.prototype, 'time', { get: function(){ return 2 + Math.random()*1.5; }});
+
+function Fire(color, app, pixelate) {
+  this.flame = new PIXI.Container();
+  this.cutout = new PIXI.Container();
+  this.fire = new PIXI.Container();
+  this.flame.addChild(this.fire);
+  this.flame.addChild(this.cutout);
+  this.fire.alpha = 0.7;
+
+  var circle = new PIXI.Graphics();
+  circle.lineStyle(0); circle.beginFill(color, 1); circle.drawCircle(0,0,35); circle.endFill();
+  this.fireBlob = app.renderer.generateTexture(circle);
+
+  var co = new PIXI.Graphics();
+  co.lineStyle(0); co.beginFill(0x000000,1); co.drawCircle(0,0,40); co.endFill();
+  this.cutoutBlob = app.renderer.generateTexture(co);
+
+  var filters = {
+    bloom: new PIXI.filters.AdvancedBloomFilter(0.45, 0.5, 0.5),
+    pixel: pixelate ? new PIXI.filters.PixelateFilter() : new PIXI.filters.AlphaFilter(),
+    void: new PIXI.filters.AlphaFilter()
+  };
+  this.flame.filters = [filters.bloom, filters.pixel, filters.void];
+  this.flame.filters[this.flame.filters.length - 1].blendMode = PIXI.BLEND_MODES.SCREEN;
+
+  var self = this;
+  setInterval(function(){
+    self.addFlame();
+    self.addCutout(Math.random() > 0.5);
+  }, 50);
+}
+Fire.prototype.makeBlob = function(texture){
+  var b = new PIXI.Sprite(texture); b.anchor.set(0.5); return b;
+};
+Fire.prototype.addCutout = function(left){
+  var t = this.time * (0.7 + Math.random()*0.2);
+  var blob = this.makeBlob(this.cutoutBlob);
+  this.cutout.addChild(blob);
+  var scale = [1, 0.75 + Math.random()];
+  blob.position.x = (130 + Math.random()*50) * (left ? -1 : 1);
+  var targetX = (5 + Math.random()*60) * (left ? -1 : 1);
+  blob.scale.set(scale[0]);
+  var self = this;
+  TweenMax.to(blob, t, { ease:Power1.easeIn, pixi:{x:targetX, y:-270, scaleX:scale[1], scaleY:scale[1]}, onComplete:function(){ self.cutout.removeChild(blob); blob=null; }});
+};
+Fire.prototype.addFlame = function(){
+  var t = this.time;
+  var blob = this.makeBlob(this.fireBlob);
+  this.fire.addChild(blob);
+  var scale = [1.2 + Math.random(), 0.5 + Math.random()];
+  var bezier = [
+    {x:0, y:0},
+    {x:Math.random()*100-50, y:Math.random()*-20},
+    {x:Math.random()*100-50, y:Math.random()*-50+-50},
+    {x:0, y:-150+Math.random()*-100}
+  ];
+  blob.scale.set(scale[0]);
+  var self = this;
+  TweenMax.to(blob, t, { ease:Power0.easeOut, bezier:bezier });
+  TweenMax.to(blob, t, { pixi:{scaleX:scale[1], scaleY:scale[1]}, onComplete:function(){ self.fire.removeChild(blob); blob=null; }});
+};
+Object.defineProperty(Fire.prototype, 'time', { get: function(){ return 1 + Math.random()*0.4; }});
+Object.defineProperty(Fire.prototype, 'y', { set: function(v){ this.flame.position.y = v; }});
+Object.defineProperty(Fire.prototype, 'x', { set: function(v){ this.flame.position.x = v; }});
+Object.defineProperty(Fire.prototype, 'scale', { set: function(v){ this.flame.scale.set(v); }});
+
+function Stage(canvas, pixelate, background) {
+  this.app = new PIXI.Application(window.innerWidth, window.innerHeight, { antialias:true, transparent:true });
+  canvas.appendChild(this.app.view);
+  this.stage = new PIXI.Container();
+  this.flamesContainer = new PIXI.Container();
+  this.flames = [];
+
+  var self = this;
+  this.add(this.stage, this.app.stage);
+  this.add(this.flamesContainer);
+  this.flamesContainer.scale.set(0.55);
+
+  var flames = [
+    {color:0xE23B00, scale:1,   offset:-30},
+    {color:0xFE8200, scale:1,   offset:-10},
+    {color:0xFBE416, scale:0.9, offset: 10},
+    {color:0xFDFDB4, scale:0.7, offset: 30}
+  ];
+
+  var ember = new Ember([0xFE9C00, 0xFEA600, 0xE27100], this.app, pixelate);
+  this.add(ember.embers, this.flamesContainer);
+
+  flames.forEach(function(s){
+    var fire = new Fire(s.color, self.app, pixelate);
+    self.flames.push(fire);
+    fire.y = s.offset;
+    fire.scale = s.scale;
+    fire.flame.pivot.set(0, 10);
+    self.add(fire.flame, self.flamesContainer);
+  });
+
+  this.onResize();
+  var f = this.flames.map(function(fl){ return fl.flame; });
+  f.pop();
+  this.stokeAnimation = new TimelineMax();
+  this.stokeAnimation.to(f, 0.3, { ease:Power2.easeOut, pixi:{scaleY:1.2, scaleX:1.15} });
+  this.stokeAnimation.to(f, 1.4, { ease:Bounce.easeOut, pixi:{scaleY:1, scaleX:1} });
+  this.stokeAnimation.stop();
+
+  window.addEventListener('resize', function(){ self.onResize(); });
+  window.addEventListener('click', function(){
+    ember.stoke();
+    self.stokeAnimation.restart();
+  });
+}
+Stage.prototype.onResize = function(){
+  this.app.renderer.resize(window.innerWidth, window.innerHeight);
+  this.stage.position.x = window.innerWidth / 2;
+  this.stage.position.y = window.innerHeight * 0.92;
+};
+Stage.prototype.add = function(el, container){ (container || this.stage).addChild(el); };
+Stage.prototype.remove = function(el, container){ (container || this.stage).removeChild(el); };
+
+new Stage(document.getElementById('canvas'), pixelate, background);
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+*.log
+logs/
+/memory/
+test/.tmp-mem.db
+test/.tmp-*.db
+test/.tmp-*.json
+examples/*/memory/
+examples/*/logs/
+examples/*/.env
+test/fixtures/*/memory/
+test/fixtures/*/logs/
+# data/ — keep tenants.json (source of truth), ignore runtime artifacts
+data/*.db
+data/*.log
+data/logs/
+# Study Pod runtime data: notes photos (deleted after 24h) and per-student flashcard logs — never commit
+examples/*/uploads/
+examples/*/study/
+/uploads/
+/study/

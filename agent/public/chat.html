@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ember Chat</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: ui-sans-serif, system-ui; max-width: 720px; margin: 0 auto; padding: 1rem; background:#0b0b0f; color:#eee; }
+  #log { border: 1px solid #2a2a35; padding: 1rem; height: 70vh; overflow-y: auto; border-radius: 8px; background:#13131a; }
+  .msg { margin: .5rem 0; padding: .5rem .75rem; border-radius: 6px; white-space: pre-wrap; }
+  .user { background:#1d2a44; }
+  .assistant { background:#1b2a1d; }
+  form { display:flex; gap:.5rem; margin-top:.75rem; }
+  input { flex:1; padding:.6rem; border-radius:6px; border:1px solid #2a2a35; background:#0e0e15; color:#eee; }
+  button { padding:.6rem 1rem; border-radius:6px; border:0; background:#5b8def; color:#fff; cursor:pointer; }
+</style>
+</head>
+<body>
+<h2>Ember Chat</h2>
+<div id="log"></div>
+<form id="f"><input id="t" autocomplete="off" placeholder="Say something…" /><button>Send</button></form>
+<script>
+  const log = document.getElementById('log');
+  const userId = localStorage.getItem('uid') || (Math.random().toString(36).slice(2));
+  localStorage.setItem('uid', userId);
+  function append(cls, text) {
+    const d = document.createElement('div'); d.className = 'msg ' + cls; d.textContent = text;
+    log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
+  }
+  document.getElementById('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('t');
+    const text = input.value.trim(); if (!text) return;
+    input.value = '';
+    append('user', text);
+    const assistantEl = append('assistant', '…');
+    const r = await fetch('/chat/message', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ userId, text })});
+    const { streamId } = await r.json();
+    const es = new EventSource('/chat/stream/' + streamId);
+    let acc = '';
+    es.onmessage = (ev) => {
+      try {
+        const { chunk } = JSON.parse(ev.data);
+        const REPLACE = '\x00REPLACE\x00';
+        if (chunk.startsWith(REPLACE)) { acc = chunk.slice(REPLACE.length); } else { acc += chunk; }
+        assistantEl.textContent = acc;
+      } catch {}
+    };
+    es.onerror = () => es.close();
+  });
+</script>
+</body>
+</html>

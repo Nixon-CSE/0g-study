@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  workspace:
+    name: agent + backend + contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: agent
+        working-directory: agent
+        run: pnpm typecheck && pnpm test
+      - name: backend
+        working-directory: backend
+        env:
+          OG_STORAGE_MOCK: '1'
+        run: pnpm typecheck && pnpm test
+      - name: contracts
+        working-directory: contracts
+        run: pnpm build && pnpm test
+
+  app:
+    name: app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # npm install (not npm ci) for parity with Vercel's installCommand.
+      - run: npm install --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      - run: npm run lint

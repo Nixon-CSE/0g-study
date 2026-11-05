@@ -1,0 +1,38 @@
+{
+  "name": "Tutor",
+  "id": "study-tutor",
+  "llm": {
+    "provider": "zerog-router"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": false
+    },
+    "web": {
+      "enabled": true,
+      "path": "/chat"
+    }
+  },
+  "tools": {
+    "builtin": {
+      "webFetch": {
+        "enabled": true
+      },
+      "webSearch": {
+        "enabled": false,
+        "provider": "tavily"
+      },
+      "studyTools": {
+        "enabled": true
+      }
+    }
+  },
+  "evolution": {
+    "mode": "suggest",
+    "interests": [
+      "search",
+      "github",
+      "calendar"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+packages:
+  - "mcp-server"
+
+allowBuilds:
+  argon2: true
+  blake-hash: false
+  bufferutil: true
+  es5-ext: true
+  esbuild: true
+  mongodb-memory-server: true
+  utf-8-validate: true

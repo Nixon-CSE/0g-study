@@ -1,0 +1,27 @@
+{
+  "name": "bonfire-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "hardhat compile && node scripts/copy-abi.js",
+    "test": "hardhat test",
+    "deploy:ogtestnet": "hardhat run scripts/deploy.ts --network ogTestnet",
+    "node": "hardhat node",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "typescript": "^5.6.0",
+    "ts-node": "^10.9.2",
+    "chai": "^4.3.0",
+    "ethers": "^6.13.0",
+    "@types/node": "^20.16.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["keccak", "secp256k1", "bigint-buffer", "bufferutil", "utf-8-validate"]
+  }
+}
