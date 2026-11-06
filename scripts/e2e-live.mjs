@@ -3,6 +3,9 @@
 //
 //   node scripts/e2e-live.mjs                 security + API contract + real 0G chat + real 0G vision
 //   node scripts/e2e-live.mjs --offline       skip anything that spends 0G credits
+//   agent/node_modules/.bin/tsx scripts/e2e-live.mjs   also section 8 (pod conversation quality), which loads
+//       the backend's prepareInvocationText and the agent's detectNarration from their .ts sources
+//       (run-tests.sh does this). E2E_P2_RUNS=3 sets how many times the stochastic pod scenario runs.
 //   E2E_PRIVY_TOKEN=... node scripts/e2e-live.mjs   also run the full Study Pod pipeline through the backend
 //       (get the token in the browser console at localhost:3000: JSON.parse(localStorage.getItem('privy:token')))
 //
@@ -72,7 +75,7 @@ const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const MARKER_RE = /⟦0g:([^⟧]+)⟧\s*$/;
 
 // The agent only honours `studentId` from the backend (admin token), so send it like the backend does.
-async function chatAgent(body, timeoutMs = 120000) {
+async function chatAgent(body, timeoutMs = 180000) {
   const r = await req(AGENT, '/chat/message', { method: 'POST', body, headers: body.studentId ? admin() : {} });
   eq(r.status, 200, 'POST /chat/message');
   const res = await fetch(`${AGENT}/chat/stream/${r.json.streamId}`, { signal: AbortSignal.timeout(timeoutMs) });
@@ -329,6 +332,121 @@ await test('the Examiner asks a question drawn from the earlier (first-photo) no
   assert(!/@study-/.test(q), 'the examiner must not @-mention anyone');
   assert(MARKER_RE.test(reply), 'no ⟦0g:…⟧ marker');
 }, { skip: ragSkip });
+
+// ── 8. pod conversation quality (P2) ────────────────────────────────────────
+// The pod is driven exactly as the backend cascade drives it: the invocation text comes from the
+// backend's own prepareInvocationText, and every hop gets the root message's [[upload:…]] ids as
+// excludeUploadIds (with the admin token, like agentFetch). Model output is stochastic, so the scenario
+// runs E2E_P2_RUNS times (default 3) and the narration / flashcard checks must pass every time.
+group('8. Pod conversation quality — flashcards hand-off, no narration, recall skips today\'s photo');
+let p2 = null;
+try {
+  const [inv, up, nar] = await Promise.all([
+    import('../backend/src/agents/invoker.ts'), import('../backend/src/agents/upload-markers.ts'), import('../agent/src/study/narration.ts'),
+  ]);
+  p2 = { prepare: inv.prepareInvocationText, uploadIdsIn: up.uploadIdsIn, detectNarration: nar.detectNarration };
+} catch { /* plain node: no .ts loader */ }
+const POD = ['study-note-reader', 'study-tutor', 'study-examiner'];
+const NEXT = { 'study-note-reader': 'study-tutor', 'study-tutor': 'study-examiner' };
+const RUNS = Number(process.env.E2E_P2_RUNS ?? 3);
+const QA_PAIRS = (t) => Math.min((t.match(/\bQ\d*\s*[:.)]\s*\S/g) ?? []).length, (t.match(/\bA\d*\s*[:.)]\s*\S/g) ?? []).length);
+const mentions = (t) => [...t.matchAll(/@([a-z0-9_-]{3,32})/gi)].map((m) => m[1].toLowerCase());
+
+async function uploadAs(student, photo) {
+  const dataUrl = `data:image/png;base64,${fs.readFileSync(photo).toString('base64')}`;
+  const r = await req(AGENT, '/uploads', { method: 'POST', headers: bearer(studyToken(student)), body: { dataUrl } });
+  eq(r.status, 200, 'upload');
+  return r.json.id;
+}
+/** One cascade from a human root message, following pipeline hand-offs (at most `maxHops` agents). */
+async function podCascade({ student, chatId, root, first, maxHops = 3 }) {
+  const excludeUploadIds = p2.uploadIdsIn(root);
+  const replies = [];
+  let parent = { content: root, authorType: 'user' }, speaker = `@${student}`, target = first;
+  while (target && replies.length < maxHops) {
+    const text = p2.prepare({ parent, target: { slug: target }, channel: { name: 'study' }, peerSlugs: POD, speakerLabel: speaker, speakerIsHuman: parent.authorType === 'user' });
+    const reply = await chatAgent({ userId: chatId, studentId: student, tenant: target, text, ...(excludeUploadIds.length ? { excludeUploadIds } : {}) }, 240000);
+    replies.push({ slug: target, reply });
+    const next = NEXT[target];
+    target = next && mentions(reply).includes(next) ? next : null;
+    parent = { content: reply, authorType: 'agent' }; speaker = `@${replies.at(-1).slug}`;
+  }
+  return replies;
+}
+
+const p2Skip = off ?? (!podReady ? 'pod tenants not registered — run ./run-local.sh seed <you> first' : !p2 ? 'run with tsx (agent/node_modules/.bin/tsx scripts/e2e-live.mjs)' : undefined);
+const runs = [];
+if (!p2Skip) {
+  const tag = Date.now().toString(36);
+  for (let i = 0; i < RUNS; i++) {
+    const r = { i, errors: [] };
+    try {
+      // Session A: first session, a single photo. Reader → Tutor → Examiner.
+      const sa = `e2ep2a${tag}${i}`;
+      const idA = await uploadAs(sa, PHOTO);
+      r.single = await podCascade({ student: sa, chatId: `bonfire:channel:e2e-p2a-${tag}-${i}`, root: `@study-note-reader [[upload:${idA}]]`, first: 'study-note-reader' });
+      // Session B: photo 1 (biology) read, then photo 2 (physics) through the whole pod, then a question about photo 1.
+      const sb = `e2ep2b${tag}${i}`, chB = `bonfire:channel:e2e-p2b-${tag}-${i}`;
+      const id1 = await uploadAs(sb, PHOTO);
+      r.photo1 = await podCascade({ student: sb, chatId: chB, root: `@study-note-reader [[upload:${id1}]]`, first: 'study-note-reader', maxHops: 1 });
+      const id2 = await uploadAs(sb, PHOTO2);
+      r.photo2 = await podCascade({ student: sb, chatId: chB, root: `@study-note-reader [[upload:${id2}]]`, first: 'study-note-reader' });
+      r.question = await podCascade({ student: sb, chatId: chB, root: '@study-tutor how does the Calvin cycle connect to what I studied earlier?', first: 'study-tutor', maxHops: 1 });
+    } catch (e) { r.errors.push(e.message); }
+    runs.push(r);
+    console.log(`    run ${i + 1}/${RUNS} done${r.errors.length ? ` (error: ${r.errors[0]})` : ''}`);
+  }
+  fs.mkdirSync(path.join(ROOT, '.logs'), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, '.logs/e2e-p2-transcripts.json'), JSON.stringify(runs, null, 2));
+}
+const by = (list, slug) => (list ?? []).find((x) => x.slug === slug)?.reply ?? '';
+const allReplies = (r) => [...(r.single ?? []), ...(r.photo1 ?? []), ...(r.photo2 ?? []), ...(r.question ?? [])];
+/** A check over every run: passes only if `fn` returns true for all of them; the message carries the pass rate. */
+async function everyRun(name, fn) {
+  await test(name, async () => {
+    const bad = [];
+    for (const r of runs) { let why = null; try { why = r.errors.length ? r.errors[0] : fn(r); } catch (e) { why = e.message; } if (why) bad.push(`run ${r.i + 1}: ${why}`); }
+    console.log(`      pass rate ${runs.length - bad.length}/${runs.length}`);
+    assert(bad.length === 0, bad.join(' | ').slice(0, 900));
+  }, { skip: p2Skip });
+}
+await everyRun('the Tutor reply carries ≥ 4 Q/A flashcards, then one @study-examiner hand-off', (r) => {
+  for (const t of [by(r.single, 'study-tutor'), by(r.photo2, 'study-tutor')]) {
+    if (!t) return 'no tutor reply (the reader did not hand off)';
+    if (QA_PAIRS(t) < 4) return `only ${QA_PAIRS(t)} Q/A pairs: ${JSON.stringify(t.slice(0, 200))}`;
+    const m = mentions(t);
+    if (m.filter((x) => x === 'study-examiner').length !== 1 || m.some((x) => x !== 'study-examiner')) return `mentions ${m.join(',')}`;
+    if (t.lastIndexOf('@study-examiner') < t.lastIndexOf('A:')) return 'hand-off is not after the flashcards';
+  }
+  return null;
+});
+await everyRun('no reply narrates tools, hand-offs, retrieval or missing data (detectNarration)', (r) => {
+  for (const { slug, reply } of allReplies(r)) { const h = p2.detectNarration(reply); if (h.length) return `${slug}: ${h.join(' / ')}`; }
+  return null;
+});
+await everyRun('the Examiner asks a question and mentions nobody', (r) => {
+  for (const list of [r.single, r.photo2]) {
+    const q = by(list, 'study-examiner').replace(MARKER_RE, '');
+    if (!q) return 'no examiner reply (the tutor did not hand off)';
+    if (!q.includes('?')) return `no question: ${q.slice(0, 160)}`;
+    if (mentions(q).length) return `examiner mentioned ${mentions(q).join(',')}`;
+  }
+  return null;
+});
+await everyRun('single-photo first session: no "earlier notes" citation anywhere', (r) => {
+  for (const { slug, reply } of r.single) if (NOTES_CITE_RE.test(reply)) return `${slug} cited ${reply.match(NOTES_CITE_RE)[0]}`;
+  return null;
+});
+await everyRun('two-photo session: the question about photo 1 is answered from it, with a [notes · … · #n] citation', (r) => {
+  const t = by(r.question, 'study-tutor');
+  if (!NOTES_CITE_RE.test(t)) return `no citation: ${t.slice(0, 200)}`;
+  if (!/rubisco|calvin|photosynth|chloroplast|thylakoid|nadph/i.test(t)) return 'answer is not about the photosynthesis notes';
+  return null;
+});
+await everyRun('every reply ends with a ⟦0g:…⟧ marker', (r) => {
+  for (const { slug, reply } of allReplies(r)) if (!MARKER_RE.test(reply)) return `${slug}: ${JSON.stringify(reply.slice(-80))}`;
+  return null;
+});
 
 // ── report ───────────────────────────────────────────────────────────────────
 const n = (s) => results.filter((r) => r.status === s).length;

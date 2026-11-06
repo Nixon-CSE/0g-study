@@ -35,7 +35,7 @@ if [[ -z "$QUICK" ]]; then
   [[ -x "$ROOT/contracts/node_modules/.bin/hardhat" ]] && step "contracts tests" contracts ./node_modules/.bin/hardhat test
 fi
 if curl -sf -m 3 http://localhost:7777/health >/dev/null && curl -sf -m 3 http://localhost:8080/health >/dev/null; then
-  step "live e2e" . node scripts/e2e-live.mjs $OFFLINE
+  step "live e2e" . agent/node_modules/.bin/tsx scripts/e2e-live.mjs $OFFLINE
   [[ -f "$LOGS/test-live_e2e.log" ]] && sed 's/\x1b\[[0-9;]*m//g' "$LOGS/test-live_e2e.log" | grep -E "✓|✗|○|Live E2E" | sed 's/^/    /'
 else
   echo "SKIP  live e2e  (start the stack with ./run-local.sh)" >> "$SUMMARY"
