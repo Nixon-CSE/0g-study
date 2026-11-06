@@ -242,15 +242,18 @@ if (embDown) console.log(`\n${C.y('○ 0G embeddings down: study-memory tests ar
 group('5. Real 0G Private Computer calls (spends a few credits)');
 const off = OFFLINE ? '--offline' : undefined;
 await test('chat reply carries a 0G request-id proof marker', async () => {
-  const reply = await chatAgent({ userId: `e2e-${Date.now()}`, text: 'Reply with exactly one word: PONG' });
+  // As student e2etester (admin token, like the backend), so /usage below counts it for that student only.
+  const reply = await chatAgent({ userId: `e2e-${Date.now()}`, studentId: 'e2etester', text: 'Reply with exactly one word: PONG' });
   assert(/pong/i.test(reply), `unexpected reply: ${reply.slice(0, 200)}`);
   const m = reply.match(MARKER_RE);
   assert(m, `no ⟦0g:…⟧ marker at the end of the reply: ${JSON.stringify(reply.slice(-120))}`);
   assert(m[1].split(',').every((id) => /^[A-Za-z0-9-]{8,64}$/.test(id)), `bad request ids: ${m[1]}`);
 }, { skip: off });
-await test('/usage counted the call', async () => {
+await test("/usage counted the call for that student only (not for another student)", async () => {
   const r = await req(AGENT, '/usage', { headers: bearer(studyToken()) });
   assert(r.json.calls >= 1 && r.json.lastRequestIds.length >= 1, `usage did not move: ${r.text}`);
+  const other = await req(AGENT, '/usage', { headers: bearer(studyToken(`nobody${Date.now().toString(36)}`)) });
+  eq(other.json.calls, 0, "another student's calls");
 }, { skip: off });
 
 let tenants = [];
