@@ -5,6 +5,7 @@ import type { Db } from 'mongodb';
 import { requireUser } from '../../auth/middleware.js';
 import { requireServerMember, type ServerBindings } from '../../servers/middleware.js';
 import { collections, type ChannelDoc, type KnowledgeDocDoc } from '../../db/types.js';
+import { kbDeleteDoc, kbIndexDoc, kbSyncInBackground } from '../../agents/kb-rag.js';
 
 const MAX_INLINE_BYTES = 256 * 1024;     // 256 KB for typed content
 const MAX_UPLOAD_BYTES = 512 * 1024;     // 512 KB for file uploads
@@ -143,6 +144,7 @@ export function knowledgeRoutes(deps: KnowledgeRouteDeps) {
         updatedAt: now,
       };
       await deps.db.collection<KnowledgeDocDoc>(collections.knowledgeDocs).insertOne(doc);
+      kbSyncInBackground('index', () => kbIndexDoc(doc));
       return c.json({ doc: publicDoc(doc) }, 201);
     }
   );
@@ -204,6 +206,7 @@ export function knowledgeRoutes(deps: KnowledgeRouteDeps) {
         updatedAt: now,
       };
       await deps.db.collection<KnowledgeDocDoc>(collections.knowledgeDocs).insertOne(doc);
+      kbSyncInBackground('index', () => kbIndexDoc(doc));
       return c.json({ doc: publicDoc(doc) }, 201);
     }
   );
@@ -221,6 +224,7 @@ export function knowledgeRoutes(deps: KnowledgeRouteDeps) {
         .collection<KnowledgeDocDoc>(collections.knowledgeDocs)
         .deleteOne({ _id: new ObjectId(did), serverId: server._id });
       if (res.deletedCount !== 1) return c.json({ error: 'not_found' }, 404);
+      kbSyncInBackground('delete', () => kbDeleteDoc(server._id, new ObjectId(did)));
       return c.json({ ok: true });
     }
   );

@@ -14,6 +14,7 @@ import type { InftChain } from '../chain/inft.js';
 import type { OgStorageClient } from '../storage-0g/index.js';
 import { decryptAgentBundle } from './inft-decrypt.js';
 import { writeAudit } from '../audit/log.js';
+import { retrieveKnowledgeBlock } from './kb-rag.js';
 
 // ---------------------------------------------------------------------------
 // INFT invocation (bundle decrypt)
@@ -69,10 +70,22 @@ export function chatIdForChannel(channelId: ObjectId): string {
 // Server-owned notes from the #knowledge-base channel are fetched once per
 // invocation batch and prepended to the text the agent sees. The persisted
 // user message is unchanged — only the in-flight `text` carries the block.
+//
+// With the agent runtime's RAG available (kb-rag.ts), only the chunks relevant to `query` are sent,
+// each cited as [kb · <title> · #n], within the same byte budget. If retrieval is disabled or fails,
+// this falls back to the old behaviour (newest 20 docs, 8 KB) and logs it.
 
 const KNOWLEDGE_BUDGET_BYTES = 8 * 1024;
 
-async function buildKnowledgeBlock(db: Db, serverId: ObjectId): Promise<string | null> {
+export async function buildKnowledgeBlock(db: Db, serverId: ObjectId, query: string): Promise<string | null> {
+  const rag = await retrieveKnowledgeBlock(db, serverId, query);
+  if (rag.ok) return rag.block;
+  if (rag.reason !== 'disabled') log.warn({ serverId: serverId.toHexString(), reason: rag.reason }, 'knowledge RAG unavailable — falling back to newest docs');
+  return newestKnowledgeBlock(db, serverId);
+}
+
+/** Pre-RAG behaviour: the 20 newest docs, truncated at 8 KB. */
+async function newestKnowledgeBlock(db: Db, serverId: ObjectId): Promise<string | null> {
   const docs = await db
     .collection<KnowledgeDocDoc>(collections.knowledgeDocs)
     .find({ serverId })
@@ -150,7 +163,7 @@ export async function startStreamingInvocation(
   // TEE channels: privacy boundary — skip knowledge-base injection.
   const knowledgeBlock = ctx.channel.tee
     ? null
-    : await buildKnowledgeBlock(ctx.db, ctx.channel.serverId);
+    : await buildKnowledgeBlock(ctx.db, ctx.channel.serverId, ctx.userMessage.content);
   const textForAgent = knowledgeBlock
     ? `${knowledgeBlock}\n\n${ctx.userMessage.content}`
     : ctx.userMessage.content;
@@ -209,7 +222,7 @@ export async function runInvocation(ctx: InvocationContext, agents: AgentDoc[]):
   // TEE channels: privacy boundary — skip knowledge-base injection.
   const knowledgeBlock = ctx.channel.tee
     ? null
-    : await buildKnowledgeBlock(ctx.db, ctx.channel.serverId);
+    : await buildKnowledgeBlock(ctx.db, ctx.channel.serverId, ctx.userMessage.content);
   const textForAgent = knowledgeBlock
     ? `${knowledgeBlock}\n\n${ctx.userMessage.content}`
     : ctx.userMessage.content;
@@ -489,7 +502,7 @@ async function runInvocationLinked(args: {
   // TEE channels: privacy boundary — skip knowledge-base injection on every hop.
   const knowledgeBlock = args.channel.tee
     ? null
-    : await buildKnowledgeBlock(args.db, args.channel.serverId);
+    : await buildKnowledgeBlock(args.db, args.channel.serverId, args.parent.content);
   for (const agent of args.agents) {
     const startMs = Date.now();
     try {
