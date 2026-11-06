@@ -8,6 +8,7 @@ import { log } from '../util/logger.js';
 import { chunkMarkdown } from './chunk.js';
 import { embedTexts } from './embed.js';
 import { searchIndex, type Hit, type RankOptions } from './search.js';
+import { ensureIndexModel } from './rebuild.js';
 import { studentIndexFile, upsertSource } from './store.js';
 
 /** Study memory, phase 1: a student's own past notes. */
@@ -27,6 +28,8 @@ interface NotesSource { uploadId: string; text: string; day: string; title: stri
 async function indexSource(agentDir: string, userId: string, src: NotesSource): Promise<{ chunks: number; requestId: string | null }> {
   const chunks = chunkMarkdown(src.text, NOTES_CHUNK);
   if (chunks.length === 0) return { chunks: 0, requestId: null };
+  // A model switch re-embeds the student's earlier notes first, so they are kept, not reset.
+  await ensureIndexModel(studentIndexFile(agentDir, userId));
   const emb = await embedTexts(chunks.map(embedInput));
   await upsertSource(
     studentIndexFile(agentDir, userId),

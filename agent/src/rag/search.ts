@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { cosineDistance } from '../memory/store.js';
-import { embedTexts } from './embed.js';
+import { embedModelName, embedTexts } from './embed.js';
+import { ensureIndexModel } from './rebuild.js';
 import { decodeVector, readIndex, type RagSource, type StoredChunk } from './store.js';
 
 export interface Hit { text: string; heading: string; score: number; citation: string; source: RagSource }
@@ -108,11 +109,16 @@ export function rankChunks(
  * Throws EmbeddingError when 0G embeddings fail; callers degrade gracefully.
  */
 export async function searchIndex(file: string, query: string, opts: RankOptions = {}): Promise<{ hits: Hit[]; requestId: string | null }> {
-  const idx = await readIndex(file);
+  let idx = await readIndex(file);
   if (!idx || idx.chunks.length === 0 || !query.trim()) return { hits: [], requestId: null };
   // Nothing left once today's notes are excluded (first session): no 0G call is spent.
   const ex = new Set(opts.excludeUploadIds ?? []);
   if (ex.size && idx.chunks.every((c) => c.source.kind === 'notes' && ex.has(c.source.uploadId))) return { hits: [], requestId: null };
+  // Built with another model (ZEROG_EMBED_MODEL changed): rebuild from chunk text first, never mix.
+  if (idx.model !== embedModelName()) {
+    await ensureIndexModel(file);
+    idx = (await readIndex(file))!;
+  }
   const { vectors, requestId } = await embedTexts([query.slice(0, 4000)], { model: idx.model });
   const chunks = idx.chunks.map((c) => ({ ...c, vector: decodeVector(c.vector) }));
   return { hits: rankChunks(vectors[0], chunks, opts), requestId };

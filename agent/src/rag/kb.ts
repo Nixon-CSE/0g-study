@@ -3,6 +3,7 @@ import { embedTexts } from './embed.js';
 import { embedInput } from './notes.js';
 import { formatRetrievedBlock, searchIndex, type Hit } from './search.js';
 import { kbIndexFile, readIndex, removeSource, upsertSource } from './store.js';
+import { ensureIndexModel } from './rebuild.js';
 
 /**
  * Study memory, phase 2: a server's knowledge-base documents. One index per serverId, so server X's
@@ -23,6 +24,8 @@ export async function indexKbDoc(
     await removeSource(file, `kb:${doc.docId}`);
     return { chunks: 0, requestId: null };
   }
+  // A model switch re-embeds the server's other docs first, so they are kept, not reset.
+  await ensureIndexModel(file);
   // The title goes into the embedded text so a short chunk still knows which document it belongs to.
   const emb = await embedTexts(chunks.map((c) => `${doc.title}\n${embedInput(c)}`));
   await upsertSource(
