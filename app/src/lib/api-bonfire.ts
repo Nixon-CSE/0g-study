@@ -103,7 +103,11 @@ export const bf = {
     api<{ manifest: Record<string, unknown> }>('GET', `/v1/agents/${aidOrSlug}/manifest`, undefined, { auth: false }),
 
   getAgentConfig: (aidOrSlug: string) =>
-    api<{ model: string | null; provider: string | null; temperature: number | null }>(
+    api<{
+      model: string | null; provider: string | null; temperature: number | null;
+      /** Live connections (P3): telegram is true only when the agent's bot is really connected. */
+      connections?: { telegram?: boolean };
+    }>(
       'GET', `/v1/agents/${aidOrSlug}/config`, undefined, { auth: false }
     ),
 
