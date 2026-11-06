@@ -1,8 +1,6 @@
 # Mumbai changelog
 
-Work done during the ETHGlobal Mumbai window, for the 0G "Keep Building on 0G" continuity track.
-
-**Starting commit:** not recorded in this repository. Its first commit (`71791f4`, 2026-11-06) already contains BonFire *and* the Study Pod. Add the hash of the pre-hackathon BonFire state here before submitting to the continuity track.
+Work done during the ETHGlobal Mumbai window. This is a record of the work, not an entry: 0G Study is submitted to the "Build with 0G Private Computer" prize only, not to the "Keep Building on 0G" continuity track. This repository's history begins at `71791f4` (2026-11-06).
 
 ## 2026-11-06 — Study memory: RAG on 0G Private Computer (new 0G usage: embeddings)
 
