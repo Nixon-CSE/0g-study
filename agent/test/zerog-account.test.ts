@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sealKeys, openKeys, validKeys, neuronTo0G, fetchBalance, saveUserKeys, loadUserKeys, accountsOffReason } from '../src/study/zerog-account.js';
+import { sealKeys, openKeys, validKeys, fetchBalance, saveUserKeys, loadUserKeys, accountsOffReason } from '../src/study/zerog-account.js';
 import { withUserKey } from '../src/providers/zerog-router.js';
 import { runWithContext } from '../src/runtime/request-context.js';
 import { studyRoutes } from '../src/api/routes/study.js';
@@ -56,17 +56,13 @@ describe('user 0G keys at rest', () => {
 });
 
 describe('balance', () => {
-  it('converts neuron to 0G', () => {
-    expect(neuronTo0G('2000000000000000000')).toBe(2);
-    expect(neuronTo0G('1234567000000000')).toBe(0.001234);
-  });
   it('reads /account/balance with the management key', async () => {
     let auth = '';
     const f = (async (_u: any, init: any) => {
       auth = new Headers(init.headers).get('authorization')!;
       return new Response(JSON.stringify({ total_balance: '1500000000000000000' }), { headers: { 'content-type': 'application/json' } });
     }) as any;
-    expect(await fetchBalance('mk-abc12345678', f)).toEqual({ ok: true, balance0G: 1.5, address: null });
+    expect(await fetchBalance('mk-abc12345678', f)).toEqual({ ok: true, address: null, balance: { currency: '0g', available: 1500000000000000000n, credit: 0n, deposit: 0n, unsettled: 0n } });
     expect(auth).toBe('Bearer mk-abc12345678');
   });
   it('surfaces 403 insufficient_scope', async () => {
@@ -94,7 +90,7 @@ describe('withUserKey', () => {
 });
 
 describe('/study/account routes', () => {
-  const okBalance = async () => ({ ok: true as const, balance0G: 3.25, address: null });
+  const okBalance = async () => ({ ok: true as const, address: null, balance: { currency: 'usd' as const, available: 437504n, credit: 437504n, deposit: 0n, unsettled: 0n } });
   const listKeys = async () => ({ ok: true as const, keys: [{ preview: 'sk-user…', revoked: false, expiresAt: null }] });
   const auth = { authorization: `Bearer ${token('alice')}`, 'content-type': 'application/json' };
 
@@ -106,7 +102,7 @@ describe('/study/account routes', () => {
     const postBody = await post.text();
     expect(postBody).not.toContain('sk-user');
     const got = await (await app.request('/study/account', { headers: auth })).text();
-    expect(JSON.parse(got)).toEqual({ enabled: true, connected: true, balance0G: 3.25 });
+    expect(JSON.parse(got)).toEqual({ enabled: true, connected: true, balance: { currency: 'usd', available: '437504', credit: '437504', deposit: '0', unsettled: '0' } });
     expect(got).not.toContain('mk-user');
     await app.request('/study/account', { method: 'DELETE', headers: auth });
     expect(await loadUserKeys(dir, 'alice')).toBeNull();

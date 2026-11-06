@@ -10,12 +10,10 @@ import { routerBaseUrl } from '../providers/zerog-router.js';
  * The 0G Router has no OAuth flow (docs: Router → Authentication). The documented way for a user
  * to bring their own account is their own keys:
  *   - sk-…  API key        → inference, billed against the user's own 0G deposit
- *   - mk-…  management key → with scope account:read, GET /v1/account/balance
+ *   - mk-…  management key → Read-only preset: GET /v1/account/balance, usage history, the key list
  * Both are kept server-side only, encrypted at rest (AES-256-GCM, key derived from STUDY_JWT_SECRET),
  * and never returned to the browser. The shared ZEROG_API_KEY is never exposed either.
  */
-
-export const NEURON_PER_0G = 10n ** 18n;
 
 export interface UserKeys { apiKey: string; managementKey: string; }
 
@@ -82,20 +80,38 @@ export async function deleteUserKeys(agentDir: string, userId: string): Promise<
   await fs.rm(keyFile(agentDir, userId), { force: true });
 }
 
-/** neuron string → 0G number (display only). */
-export function neuronTo0G(neuron: string): number {
-  const n = BigInt(neuron);
-  return Number(n / 10n ** 12n) / 1e6; // 6 decimals is plenty for a status bar
+/**
+ * A student's 0G balance, exact. Measured on a real account (2026-11-06): `currency: "usd"` amounts are
+ * integer micro-USD; "0g" (or absent) amounts are neuron (1e18 = 1 0G). A charge lands in
+ * `unsettled_charge` within ~3 s and leaves it for `total_balance` a few seconds later, so
+ * available = total − unsettled is the number that drops first. credit = bonus and daily iAI credits.
+ */
+export interface AccountBalance { currency: 'usd' | '0g'; available: bigint; credit: bigint; deposit: bigint; unsettled: bigint }
+
+const amount = (v: unknown): bigint | null => (typeof v === 'string' && /^\d+$/.test(v) ? BigInt(v) : null);
+
+/** Parse GET /v1/account/balance. Null when a required field is missing or invalid: never a guessed number. */
+export function parseBalance(j: any): AccountBalance | null {
+  const currency = String(j?.currency ?? '0g').toLowerCase();
+  if (currency !== 'usd' && currency !== '0g') return null;
+  const total = amount(j?.total_balance ?? j?.balance);
+  const credit = amount(j?.credit_balance ?? '0');
+  const deposit = amount(j?.deposit_balance ?? '0');
+  const unsettled = amount(j?.unsettled_charge ?? '0');
+  if (total === null || credit === null || deposit === null || unsettled === null) return null;
+  return { currency, available: total > unsettled ? total - unsettled : 0n, credit, deposit, unsettled };
+}
+
+/** The browser's copy: bigints as strings. */
+export function publicBalance(b: AccountBalance | null) {
+  return b && { currency: b.currency, available: String(b.available), credit: String(b.credit), deposit: String(b.deposit), unsettled: String(b.unsettled) };
 }
 
 export type BalanceResult =
-  | { ok: true; balance0G: number | null; address: string | null }
+  | { ok: true; balance: AccountBalance | null; address: string | null }
   | { ok: false; status: number; error: string };
 
-/**
- * GET /v1/account/balance with the user's mk- key (scope account:read). `balance0G` is null unless the
- * account settles in 0G: a USD account's amounts are micro-USD, and must never be shown as 0G.
- */
+/** GET /v1/account/balance with the user's mk- key (scope account:read). */
 export async function fetchBalance(managementKey: string, f: typeof fetch = fetch): Promise<BalanceResult> {
   try {
     const r = await f(`${routerBaseUrl()}/account/balance`, {
@@ -104,12 +120,53 @@ export async function fetchBalance(managementKey: string, f: typeof fetch = fetc
     });
     const j: any = await r.json().catch(() => ({}));
     if (!r.ok) return { ok: false, status: r.status, error: j?.error?.code ?? j?.error?.message ?? `HTTP ${r.status}` };
-    const in0G = (j?.currency ?? '0g') === '0g' && typeof j?.total_balance === 'string' && /^\d+$/.test(j.total_balance);
-    return { ok: true, balance0G: in0G ? neuronTo0G(j.total_balance) : null, address: typeof j?.address === 'string' ? j.address : null };
+    return { ok: true, balance: parseBalance(j), address: typeof j?.address === 'string' ? j.address : null };
   } catch (e: any) {
     return { ok: false, status: 502, error: `0G unreachable: ${e?.cause?.code ?? e?.name ?? 'error'}` };
   }
 }
+
+export interface BilledCall { requestId: string; cost: string; creditUsed: string; depositUsed: string; model: string | null; at: string | null }
+export type HistoryResult = { ok: true; currency: string; calls: BilledCall[] } | { ok: false; status: number; error: string };
+
+const num = (v: unknown): string => (typeof v === 'number' || typeof v === 'string') && /^\d+(\.\d+)?$/.test(String(v)) ? String(v) : '0';
+
+/** GET /v1/account/usage/history with the student's own mk- key: their newest calls, what each cost and how it was paid. */
+export async function fetchUsageHistory(managementKey: string, limit = 100, f: typeof fetch = fetch): Promise<HistoryResult> {
+  try {
+    const r = await f(`${routerBaseUrl()}/account/usage/history?limit=${limit}`, {
+      headers: { authorization: `Bearer ${managementKey}` },
+      signal: AbortSignal.timeout(20_000),
+    });
+    const j: any = await r.json().catch(() => ({}));
+    if (!r.ok) return { ok: false, status: r.status, error: j?.error?.code ?? `HTTP ${r.status}` };
+    const rows: any[] = Array.isArray(j?.data) ? j.data : [];
+    return {
+      ok: true,
+      currency: String(j?.currency ?? rows[0]?.currency ?? '0g').toLowerCase(),
+      calls: rows.filter((x) => typeof x?.request_id === 'string').map((x) => ({
+        requestId: x.request_id, cost: num(x.cost), creditUsed: num(x.credit_used), depositUsed: num(x.deposit_used),
+        model: typeof x.model_id === 'string' ? x.model_id : null, at: typeof x.created_at === 'string' ? x.created_at : null,
+      })),
+    };
+  } catch (e: any) {
+    return { ok: false, status: 502, error: `0G unreachable: ${e?.cause?.code ?? e?.name ?? 'error'}` };
+  }
+}
+
+const HISTORY_TTL_MS = 5_000;
+const historyCache = new Map<string, { at: number; result: Extract<HistoryResult, { ok: true }> }>();
+
+/** One student's history, cached for a few seconds under their own id. Failures are not cached. */
+export async function cachedUsageHistory(userId: string, managementKey: string, read: typeof fetchUsageHistory = fetchUsageHistory, now = Date.now()): Promise<HistoryResult> {
+  const hit = historyCache.get(userId);
+  if (hit && now - hit.at < HISTORY_TTL_MS) return hit.result;
+  const result = await read(managementKey);
+  if (result.ok) historyCache.set(userId, { at: now, result });
+  if (historyCache.size > 1000) historyCache.clear();
+  return result;
+}
+export function forgetUsageHistory(userId?: string) { if (userId) historyCache.delete(userId); else historyCache.clear(); }
 
 export interface ApiKeyInfo { preview: string; revoked: boolean; expiresAt: string | null }
 export type KeyListResult = { ok: true; keys: ApiKeyInfo[] } | { ok: false; status: number; error: string };
@@ -151,7 +208,7 @@ function managementKeyError(status: number): { status: number; error: string } {
   return { status: 502, error: UNREACHABLE };
 }
 
-export type VerifyResult = { ok: true; balance0G: number | null; address: string | null } | { ok: false; status: number; error: string };
+export type VerifyResult = { ok: true; balance: AccountBalance | null; address: string | null } | { ok: false; status: number; error: string };
 
 /**
  * Check both keys live before anything is stored, without spending credits: the mk- key must read the
@@ -172,7 +229,7 @@ export async function verifyUserKeys(
   if (mine.length === 0) return { ok: false, status: 400, error: "This API key (sk-…) isn't on the same pc.0g.ai account as the management key. Create both on one account." };
   const active = mine.some((k) => !k.revoked && (!k.expiresAt || !(Date.parse(k.expiresAt) <= now.getTime())));
   if (!active) return { ok: false, status: 400, error: 'This API key (sk-…) has been revoked or has expired. Create a new one at pc.0g.ai → API Keys.' };
-  return { ok: true, balance0G: b.balance0G, address: b.address };
+  return { ok: true, balance: b.balance, address: b.address };
 }
 
 /** Time until the daily credits refresh (00:00 UTC), e.g. "3h 14m". */
