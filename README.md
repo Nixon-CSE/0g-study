@@ -105,7 +105,7 @@ pnpm install                      # agent + backend + contracts (workspace)
 |---|---|
 | `agent/.env` | `ZEROG_API_KEY`, `ZEROG_LLM_MODEL`, `ZEROG_VISION_MODEL`, `ZEROG_EMBED_MODEL` (optional, default `qwen3-embedding-0.6b`), `STUDY_JWT_SECRET` (= backend `JWT_SECRET`), `STUDY_ALLOWED_ORIGINS`, `AGENT_ADMIN_TOKEN` (= backend's) |
 | `backend/.env` | `JWT_SECRET` (≥ 32 chars), `PRIVY_APP_ID`, `PRIVY_APP_SECRET` |
-| `app/.env.local` | `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_BONFIRE_BASE_URL`, `NEXT_PUBLIC_AGENT_BASE_URL` |
+| `app/.env.local` | `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_BONFIRE_BASE_URL`, `NEXT_PUBLIC_AGENT_BASE_URL`; optional `NEXT_PUBLIC_AGENT_MODEL_LABEL` (agent-card model label, default `0G Private Computer`) |
 
 **2. Check 0G** — lists models, makes one chat and one vision call, prints the request-ID headers:
 

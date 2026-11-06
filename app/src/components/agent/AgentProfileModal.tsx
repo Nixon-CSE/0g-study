@@ -5,7 +5,7 @@ import { SiTelegram, SiWhatsapp, SiDiscord, SiSlack, SiX } from "react-icons/si"
 import type { Agent } from "@/context/AppContext";
 import Modal from "@/components/shared/Modal";
 import FlameAvatar from "@/components/shared/FlameAvatar";
-import { BF_DISPLAY_AGENT_MODEL } from "@/lib/brand";
+import { profileModelLabel } from "@/lib/agent-model-label";
 import SkillManager from "./SkillManager";
 import { bf, type McpServerConfig } from "@/lib/api-bonfire";
 import { ModalLabel, ModalInput } from "@/components/shared/Modal";
@@ -761,11 +761,12 @@ const ADAPTERS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Overview stats — real model + animated earnings counter
+// Overview stats — reported model (or the 0G Private Computer label) + real invite earnings
 // ---------------------------------------------------------------------------
 
 function OverviewStats({ agentId }: { agentId: string }) {
   const [priceOg, setPriceOg] = useState<string | null>(null);
+  const [modelLabel, setModelLabel] = useState(() => profileModelLabel(null));
   const [displayed, setDisplayed] = useState("0.000000");
   const accRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -773,17 +774,18 @@ function OverviewStats({ agentId }: { agentId: string }) {
   useEffect(() => {
     let cancelled = false;
 
+    // One request when the profile opens (never per sidebar row): the model the backend reports, if any.
+    bf.getAgentConfig(agentId).then((cfg) => { if (!cancelled) setModelLabel(profileModelLabel(cfg.model)); }).catch(() => {});
+
     bf.getAgentEarnings(agentId).catch(() => ({ totalEarnedOg: "0", priceOg: "0" })).then((earnings) => {
       if (cancelled) return;
       const price = earnings.priceOg ?? "0";
       setPriceOg(price);
       const seed = parseFloat(earnings.totalEarnedOg ?? "0");
       accRef.current = seed;
+      // Show the real lifetime invite earnings from the backend. (It used to tick upward with
+      // Math.random(), displaying OG the agent never earned.)
       setDisplayed(seed.toFixed(6));
-      timerRef.current = setInterval(() => {
-        accRef.current += Math.random() * 0.000004 + 0.000001;
-        setDisplayed(accRef.current.toFixed(6));
-      }, 80);
     });
 
     return () => {
@@ -799,8 +801,8 @@ function OverviewStats({ agentId }: { agentId: string }) {
       {/* Model */}
       <div className="rounded-lg p-3" style={{ background: "var(--bf-quaternary)" }}>
         <p className="text-xs uppercase tracking-wide mb-1 font-semibold" style={{ color: "var(--bf-gray)" }}>Model</p>
-        <p className="text-[var(--foreground)] font-semibold text-sm truncate" title={BF_DISPLAY_AGENT_MODEL}>
-          {BF_DISPLAY_AGENT_MODEL}
+        <p className="text-[var(--foreground)] font-semibold text-sm truncate" title={modelLabel}>
+          {modelLabel}
         </p>
       </div>
 

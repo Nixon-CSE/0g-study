@@ -70,6 +70,7 @@ cd backend && pnpm tsx scripts/seed-study-pod.mjs --owner <your-username-or-emai
 | `NEXT_PUBLIC_OG_CHAIN_ID` | `16602` |
 | `NEXT_PUBLIC_INFT_CONTRACT_ADDRESS` | `0x151819ebc4435937f704FbB726DE6f99Bda262Bb` |
 | `NEXT_PUBLIC_ZEROG_ACCOUNTS` | `on` to show "Connect 0G account" (match the agent) |
+| `NEXT_PUBLIC_AGENT_MODEL_LABEL` | optional; model label on agent cards (default `0G Private Computer`). Set it only to what the agent really runs (`ZEROG_LLM_MODEL`) |
 
 Never put `ZEROG_API_KEY` or any `sk-`/`mk-` key in a `NEXT_PUBLIC_*` variable.
 
