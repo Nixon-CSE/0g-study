@@ -4,6 +4,9 @@
 // Reads ZEROG_API_KEY (+ optional ZEROG_BASE_URL, ZEROG_LLM_MODEL, ZEROG_VISION_MODEL) from agent/.env.
 // Lists models, makes one chat and one vision completion, and prints response headers + body id
 // so the request-id header (G2), model ids (G1) and vision input format (G9) can be confirmed.
+// With a photo it sends read_notes' real prompt and max_tokens with the runtime's thinking-off field,
+// and prints finish_reason and reasoning tokens; for notes-sample.png it fails unless all 5 keywords
+// are read and the reply wasn't cut off.
 // Never prints the API key.
 import 'dotenv/config';
 import fs from 'node:fs';
@@ -15,6 +18,14 @@ if (!key) { console.error('ZEROG_API_KEY is not set (agent/.env)'); process.exit
 const chatModel = process.env.ZEROG_LLM_MODEL || 'deepseek-v4.1-flash';
 const visionModel = process.env.ZEROG_VISION_MODEL || 'qwen2.5-vl-72b-instruct';
 const auth = { authorization: `Bearer ${key}` };
+// Same rule as withThinkingOff in src/providers/zerog-router.ts.
+const thinkingOff = (model) => (/^gemini/i.test(model)
+  ? { extra_body: { google: { thinking_config: { thinking_budget: 0 } } } }
+  : /^(qwen|deepseek|glm|kimi|mimo|0gm)/i.test(model) ? { chat_template_kwargs: { enable_thinking: false } } : {});
+const photo = process.argv[2];
+// Keep in step with read_notes in src/tools/builtin/study.ts.
+const READ_NOTES_PROMPT = 'Transcribe these study notes faithfully as clean markdown (keep headings, formulas, lists). Then list the 3-6 key concepts. Do not add facts that are not in the image.';
+const SAMPLE_KEYWORDS = ['photosynthesis', 'calvin', 'rubisco', 'thylakoid', 'nadph'];
 
 // 1x1 white PNG fallback; pass a real notes photo for a meaningful vision check.
 const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
@@ -58,7 +69,7 @@ const chat = await call(`POST /chat/completions (${chatModel})`, `${base}/chat/c
   headers: { ...auth, 'content-type': 'application/json' },
   body: JSON.stringify({
     model: chatModel, max_tokens: 60,
-    chat_template_kwargs: { enable_thinking: false },
+    ...thinkingOff(chatModel),
     messages: [{ role: 'user', content: 'Reply with exactly: pong' }],
   }),
 });
@@ -69,17 +80,29 @@ const vision = await call(`POST /chat/completions vision (${visionModel})`, `${b
   method: 'POST',
   headers: { ...auth, 'content-type': 'application/json' },
   body: JSON.stringify({
-    model: visionModel, max_tokens: 200,
-    chat_template_kwargs: { enable_thinking: false },
+    model: visionModel, max_tokens: photo ? 1500 : 200,
+    ...thinkingOff(visionModel),
     messages: [{ role: 'user', content: [
-      { type: 'text', text: 'Describe this image in one short sentence. If it contains text, transcribe it.' },
-      { type: 'image_url', image_url: { url: imageDataUrl(process.argv[2]) } },
+      { type: 'text', text: photo ? READ_NOTES_PROMPT : 'Describe this image in one short sentence. If it contains text, transcribe it.' },
+      { type: 'image_url', image_url: { url: imageDataUrl(photo) } },
     ] }],
   }),
 });
 console.log('    body.id:', vision.body?.id, '| usage:', JSON.stringify(vision.body?.usage), '| reply:', JSON.stringify(vision.body?.choices?.[0]?.message?.content)?.slice(0, 300));
 if (!vision.res.ok) console.log('    error body:', String(JSON.stringify(vision.body)).slice(0, 400));
 
-const ok = models.res.ok && chat.res.ok && vision.res.ok;
-console.log(`\n${ok ? 'OK' : 'FAILED'}: models=${models.res.status} chat=${chat.res.status} vision=${vision.res.status}`);
+let visionRead = true;
+if (photo) {
+  const choice = vision.body?.choices?.[0];
+  const out = (choice?.message?.content ?? '').toLowerCase();
+  console.log(`    finish_reason: ${choice?.finish_reason} | reasoning tokens: ${vision.body?.usage?.completion_tokens_details?.reasoning_tokens ?? 'n/a'} | chars: ${out.length}`);
+  if (path.basename(photo).startsWith('notes-sample')) {
+    const hits = SAMPLE_KEYWORDS.filter((w) => out.includes(w));
+    console.log(`    keywords: ${hits.length}/${SAMPLE_KEYWORDS.length} (${hits.join(', ')})`);
+    visionRead = hits.length === SAMPLE_KEYWORDS.length && choice?.finish_reason === 'stop';
+  }
+}
+
+const ok = models.res.ok && chat.res.ok && vision.res.ok && visionRead;
+console.log(`\n${ok ? 'OK' : 'FAILED'}: models=${models.res.status} chat=${chat.res.status} vision=${vision.res.status}${photo ? ` read=${visionRead}` : ''}`);
 process.exit(ok ? 0 : 1);

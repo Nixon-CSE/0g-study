@@ -14,7 +14,7 @@ Audience: Claude Code, executing in that repo. Read this whole file first, then 
 
 `@study-note-reader` (0G vision transcribes the photo) → `@study-tutor` (explains the hard ideas, writes flashcards, logs them) → `@study-examiner` (quizzes the student and grades answers).
 
-A daily **study streak** is the reason to return tomorrow. **All inference runs on 0G Private Computer** (OpenAI-compatible router, TEE-verified), and **every agent reply shows its 0G request ID**.
+A daily **study streak** is the reason to return tomorrow. **All inference goes through 0G Private Computer** (OpenAI-compatible router; embeddings on a TEE-private provider, chat and vision on non-TEE providers), and **every agent reply shows its 0G request ID**.
 
 The product has to change in two places: the **working app** (provider, tools, UI) and the **public-facing content** (home page, pitch page, page metadata, README, submission text), which currently describe a generic "agent guild" product and contain outdated claims.
 
@@ -69,7 +69,7 @@ User: a student or self-learner with notes on paper or a whiteboard.
 - `agent/src/api/server.ts` composes the Hono routes. CORS is currently open to any origin.
 - `agent/src/index.ts` builds the tool registry with `buildToolRegistry(loaded.config, mcpHandles)`; the agent directory is `loaded.dir`.
 - `agent/examples/default-agent` is the example agent; its `agent.config.json` uses `provider: "zerog"`.
-- App: `app/src/components/message/MessageRow.tsx` renders message text as plain text and a "TEE Verified" button when `msg.teeHash` exists. `MessageComposer.tsx` has a **+** button that does nothing and a plain text input. `app/src/components/layout/StatusBar.tsx` shows the wallet address and OG balance, polling the 0G Galileo RPC. `app/src/lib/config.ts` exports `AGENT_BASE_URL` and `BONFIRE_BASE_URL`. `PrivyClientProvider.tsx` reads `NEXT_PUBLIC_PRIVY_APP_ID`.
+- App: `app/src/components/message/MessageRow.tsx` renders message text as plain text and a "Demo hash" button (not a hardware attestation) when `msg.teeHash` exists. `MessageComposer.tsx` has a **+** button that does nothing and a plain text input. `app/src/components/layout/StatusBar.tsx` shows the wallet address and OG balance, polling the 0G Galileo RPC. `app/src/lib/config.ts` exports `AGENT_BASE_URL` and `BONFIRE_BASE_URL`. `PrivyClientProvider.tsx` reads `NEXT_PUBLIC_PRIVY_APP_ID`.
 - Public-facing pages with outdated or generic content: `app/src/app/page.tsx` (home), `app/src/app/pitch/page.tsx` (slides), `app/src/app/layout.tsx` (site title/description), `README.md`, `submission.md`. Stale claims to remove: "Live on 0G Mainnet — Aristotle", "LIVE · 0G CHAIN 16661", "Real 0G mainnet txs", "0G Mainnet (Sept 2025) / Live since Aristotle launch", and Intel TDX / NVIDIA H100/H200 hardware claims. The deployed INFT contract is on **Galileo testnet (16602)**, not mainnet.
 
 Before changing anything: install dependencies, then confirm the agent test suite, and type-checks for `agent`, `backend` and `app`, pass. Record the baseline (note any pre-existing failures so they are not attributed to this work).
@@ -101,7 +101,7 @@ Before changing anything: install dependencies, then confirm the agent test suit
 - After the agent produces its final reply, drain the traced calls for that turn and append a single marker line at the end of the reply text containing the comma-separated request IDs, using a delimiter pair that cannot appear in normal text (the design uses `⟦0g:` … `⟧`).
 - Only append the marker when at least one request ID exists.
 - UI (`MessageRow.tsx`): parse the marker out of the text, strip it from the displayed message, and show a badge in the message header: `0G · <first 8 chars>…` plus `+N` when there are more. Clicking copies all IDs to the clipboard. The badge has a tooltip listing the IDs. Extract the parsing into a pure helper so it can be unit-tested.
-- The existing "TEE Verified" attestation button keeps working for messages that have `teeHash`.
+- The existing "Demo hash" button keeps working for messages that have `teeHash`. It is a backend demo hash, not a hardware attestation.
 - Acceptance: three consecutive agent replies each show a badge with different IDs; copying yields the exact IDs; a reply with no marker shows no badge.
 
 ### FR3: Notes photo → transcription
@@ -149,7 +149,7 @@ Update all of the following so they describe Study Pod and contain no unverified
 - Primary CTA: "Start studying →" linking to the workspace; secondary CTA: Browse the Marketplace (unchanged).
 - Trust row: "0G request ID on every reply", "Daily study streak", "ERC-7857 INFT agents".
 - Nav link "0G Stack" becomes "Built on 0G".
-- Problem section ("Why it matters"): re-reading notes is not studying; a single chatbot answers questions but does not quiz, track or bring you back; you cannot tell which model answered. Promise section ("Study Pod"): "A study group that never sleeps." Explain it runs inside 0G Study and every hand-off is visible. State that inference runs on 0G Private Computer and agent ownership lives on 0G Chain.
+- Problem section ("Why it matters"): re-reading notes is not studying; a single chatbot answers questions but does not quiz, track or bring you back; you cannot tell which model answered. Promise section ("Study Pod"): "A study group that never sleeps." Explain it runs inside 0G Study and every hand-off is visible. State that inference goes through 0G Private Computer (embeddings on a TEE-private provider) and agent ownership lives on 0G Chain.
 - How it works, four steps: Sign in (Privy, embedded wallet) → Open #study (the three agents are already invited) → Attach a photo of your notes → Learn and get quizzed (come back tomorrow to keep the streak).
 - Features, six cards: Photo → notes; A pod of three agents; Flashcards that stick; Daily streak; Proof on every reply (request ID badge, copy it and match it in the 0G dashboard); Own your agents (ERC-7857 INFTs on 0G Chain).
 - "Built on 0G" section heading: "Every step of the pod runs on 0G." Body: the "what breaks without 0G" sentence from section 2. Rows: Private Computer (chat and vision inference through the OpenAI-compatible router, with a request ID per call); 0G Chain (ERC-7857 INFT agents on the Galileo testnet); 0G Storage (encrypted agent metadata and skills for marketplace agents). **Remove** the 0G DA row and any "Sealed Inference on TDX + H100/H200" claim unless verified.
@@ -165,10 +165,10 @@ Update all of the following so they describe Study Pod and contain no unverified
 - Slide 1: tagline becomes Study Pod (photo of your notes in; explanation, flashcards and a quiz out; powered by 0G Private Computer). Tag chips: 0G Private Computer, Request IDs, ERC-7857 INFTs, Study streak.
 - Slide 2 (problem): notes pile up and studying does not happen; students re-read or paste into a chatbot that never quizzes, never tracks, never says where the answer came from.
 - Slide 3 (solution): "A study pod for your notes." Three agents read, teach and test in one channel; every hand-off visible; every reply has a 0G request ID. Replace the stat tiles with accurate ones for this product.
-- Slide 4 (stack): "Every agent reply runs on 0G Private Computer." Rename the "Sealed Inference" card to "Private Computer" and describe it as TEE-verified inference through an OpenAI-compatible router with a copyable request ID.
+- Slide 4 (stack): "Every agent reply goes through 0G Private Computer." Rename the "Sealed Inference" card to "Private Computer" and describe it as inference through 0G's OpenAI-compatible router with a copyable request ID, embeddings on a TEE-private provider, and chat and vision on non-TEE providers.
 - Slide 5 (live demo): remove "LIVE · 0G CHAIN 16661" (use "0G PRIVATE COMPUTER"); title "From a photo of notes to a quiz."; replace the terminal mock and the four step cards with the Study Pod flow; "What this proves": 0G request ID on every reply; vision + chat on Private Computer; per-day study streak; INFT agents on 0G Galileo.
 - Slide 6 (sponsor stack): add a 0G Private Computer row as the first row; relabel 0G Chain as the INFT registry on the Galileo testnet; mark LiveKit as optional (not used by Study Pod) and render "optional" instead of a checkmark; change the footer sentence so it states that removing 0G Private Computer makes the pod do nothing.
-- Slide 7 (why now): replace "0G Mainnet (Sept 2025) / Live since Aristotle launch" with a Private Computer card ("One OpenAI-compatible API for chat and vision on TEE-verified compute", highlight "Request ID on every call"); replace "Sealed TEE Inference" with a multimodal-models card ("Vision models can read a photo of your notes", highlight "Photo in, flashcards out").
+- Slide 7 (why now): replace "0G Mainnet (Sept 2025) / Live since Aristotle launch" with a Private Computer card ("One OpenAI-compatible API for chat, vision and embeddings; only our embeddings model runs on a TEE-private provider", highlight "Request ID on every call"); replace "Sealed TEE Inference" with a multimodal-models card ("Vision models can read a photo of your notes", highlight "Photo in, flashcards out").
 
 **README and submission**
 - README: add a "Study Pod — 0G Private Computer" section (what it is, why users return, where the code lives, how to run, the "what breaks" sentence, known limitations). Update the opening description and architecture bullets to mention Private Computer. Replace stale mainnet/Aristotle statements in "Why Now" with accurate ones.
@@ -188,7 +188,7 @@ Goal: a user signs in with their 0G account, sees their credit balance, and watc
 - **NFR1 Security.** `ZEROG_API_KEY` is server-side only (never a `NEXT_PUBLIC_*` variable). Protect the upload, usage and streak endpoints with an authentication check (shared secret or the existing JWT mechanism), restrict CORS to the app origin for these routes, cap upload size and uploads per user per day, validate all ids, and delete uploads older than 24 hours.
 - **NFR2 Reliability.** If 0G is unreachable or a call fails, the agent says so in one plain line; no fabricated notes, no crash.
 - **NFR3 Cost control.** A per-user daily cap on router calls (env `STUDY_DAILY_CALL_CAP`, default 30) with a friendly limit message.
-- **NFR4 Privacy.** Document that notes photos are stored temporarily and removed after 24 hours; state exactly what 0G's TEE verification does and does not guarantee; make no stronger claim.
+- **NFR4 Privacy.** Document that notes photos are stored temporarily and removed after 24 hours; state exactly which calls run on a TEE-private provider (embeddings) and which do not (chat, vision), and that the app does not verify attestations itself; make no stronger claim.
 - **NFR5 Tests.** Add unit tests for: the traced HTTP layer (header present, header absent, non-JSON body, token parsing); today's usage aggregation; `study_log` (create, append); upload validation (type, size, bad id); streak math (consecutive days, a gap, today not yet studied, two users independent); the marker parsing helper (request IDs, upload marker, both, neither). Keep every existing test passing.
 
 ## 9. Environment variables

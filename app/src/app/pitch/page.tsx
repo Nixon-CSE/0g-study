@@ -322,11 +322,12 @@ export default function PitchPage() {
               03 — How It Works
             </div>
             <h2 className="font-display text-5xl md:text-6xl leading-tight" style={{ fontWeight: 400 }}>
-              Every agent reply runs on <span style={{ color: ACCENT }}>0G Private Computer</span>.
+              Every agent reply goes through <span style={{ color: ACCENT }}>0G Private Computer</span>.
             </h2>
             <p className="mt-6 max-w-3xl text-base text-[var(--muted)]">
               Chat and vision inference go through 0G&apos;s OpenAI-compatible router. Each call returns a
-              request ID, and the pod shows it on the reply.
+              request ID, and the pod shows it on the reply. Study-memory embeddings run on a TEE-private
+              provider; the chat and vision models we use are not TEE-private.
             </p>
 
             <div className="mt-10 grid grid-cols-2 gap-5">
@@ -356,7 +357,7 @@ export default function PitchPage() {
                 </div>
                 <div className="mt-2 text-xl font-semibold text-[var(--foreground)]">Private Computer</div>
                 <div className="mt-2 text-sm text-[var(--subtle)]">
-                  Inference through an OpenAI-compatible router on compute 0G describes as TEE-verified, with a copyable request ID on every reply.
+                  Inference through 0G&apos;s OpenAI-compatible router, with a copyable request ID on every reply. Embeddings on a TEE-private provider; chat and vision on non-TEE providers.
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {["chat", "vision", "request ID", "OpenAI-compat"].map((t) => (
@@ -503,7 +504,7 @@ export default function PitchPage() {
               <div className="mt-4 grid grid-cols-4 gap-4">
                 {[
                   "0G request ID on every reply",
-                  "Vision + chat on Private Computer",
+                  "Vision + chat through Private Computer",
                   "Per-day study streak",
                   "INFT agents on 0G Galileo",
                 ].map((p) => (
@@ -608,7 +609,7 @@ export default function PitchPage() {
                 {
                   n: "01",
                   title: "0G Private Computer",
-                  detail: "One OpenAI-compatible API for chat and vision; 0G describes it as TEE-verified compute.",
+                  detail: "One OpenAI-compatible API for chat, vision and embeddings; only our embeddings model runs on a TEE-private provider.",
                   hl: "Request ID on every call",
                 },
                 {

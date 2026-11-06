@@ -3,11 +3,11 @@ import { parseMarkers, withUploadMarker, badgeLabel } from "../study-markers";
 
 describe("parseMarkers", () => {
   it("extracts request ids and strips the marker", () => {
-    expect(parseMarkers("Hello\n\n⟦0g:abc,def⟧")).toEqual({ text: "Hello", requestIds: ["abc", "def"], uploadIds: [] });
+    expect(parseMarkers("Hello\n\n⟦0g:abc,def⟧")).toEqual({ text: "Hello", requestIds: ["abc", "def"], uploadIds: [], e2ee: {} });
   });
   it("extracts the upload marker", () => {
     expect(parseMarkers("@study-note-reader [[upload:1234-abcd]]")).toEqual({
-      text: "@study-note-reader", requestIds: [], uploadIds: ["1234-abcd"],
+      text: "@study-note-reader", requestIds: [], uploadIds: ["1234-abcd"], e2ee: {},
     });
   });
   it("handles both", () => {
@@ -17,7 +17,7 @@ describe("parseMarkers", () => {
     expect(r.uploadIds).toEqual(["aa-bb"]);
   });
   it("leaves plain text alone and yields no badge ids", () => {
-    expect(parseMarkers("just text")).toEqual({ text: "just text", requestIds: [], uploadIds: [] });
+    expect(parseMarkers("just text")).toEqual({ text: "just text", requestIds: [], uploadIds: [], e2ee: {} });
   });
   it("is stable across repeated calls (no stateful regex)", () => {
     const m = "a [[upload:aa-bb]]";

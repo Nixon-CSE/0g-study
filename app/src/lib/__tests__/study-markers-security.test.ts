@@ -40,11 +40,11 @@ describe("upload marker", () => {
   it("round-trips through withUploadMarker", () => {
     const id = "0f8fad5b-d9cb-469f-a165-70867728950e";
     const r = parseMarkers(withUploadMarker("  @study-note-reader  ", id));
-    expect(r).toEqual({ text: "@study-note-reader", requestIds: [], uploadIds: [id] });
+    expect(r).toEqual({ text: "@study-note-reader", requestIds: [], uploadIds: [id], e2ee: {} });
     expect(withUploadMarker("hello", null)).toBe("hello");
   });
   it("survives empty and odd input without throwing", () => {
-    expect(parseMarkers("")).toEqual({ text: "", requestIds: [], uploadIds: [] });
+    expect(parseMarkers("")).toEqual({ text: "", requestIds: [], uploadIds: [], e2ee: {} });
     expect(() => parseMarkers(undefined as unknown as string)).not.toThrow();
   });
 });
@@ -54,5 +54,27 @@ describe("badgeLabel", () => {
     expect(badgeLabel([])).toBe("");
     expect(badgeLabel([UUID])).toBe("0G · 27634878…");
     expect(badgeLabel([UUID, "b", "c"])).toBe("0G · 27634878… +2");
+  });
+});
+
+describe("x-0g-e2ee per request id (P4)", () => {
+  const A = "059b93aa-c8dd-4024-8135-300e7bd2e815", B = "02e3e222-08ca-478b-9728-985516dd978c";
+  it("parses id~value, keeps bare ids, and the copied ids carry no suffix", async () => {
+    const { parseMarkers, requestIdTooltip } = await import("../study-markers");
+    const r = parseMarkers(`reply\n\n⟦0g:${A}~none,${B}~sealed,abc123⟧`);
+    expect(r.requestIds).toEqual([A, B, "abc123"]);
+    expect(r.e2ee).toEqual({ [A]: "none", [B]: "sealed" });
+    expect(r.text).toBe("reply");
+    const tip = requestIdTooltip(r.requestIds, r.e2ee);
+    expect(tip).toContain(`${B}  (x-0g-e2ee: sealed)`);
+    expect(tip).toContain(`${A}  (x-0g-e2ee: none)`);
+    expect(tip.split("\n").pop()).toBe("abc123");
+    expect(tip).not.toMatch(/\bTEE\b|Private \(/); // the header value is printed, never an invented label
+  });
+  it("rejects malformed suffixes (whole marker untrusted)", async () => {
+    const { parseMarkers } = await import("../study-markers");
+    for (const bad of [`${A}~`, `${A}~SEALED`, `${A}~sealed~x`, `${A}~<b>`, `${A}~${"a".repeat(17)}`]) {
+      expect(parseMarkers(`x\n\n⟦0g:${bad}⟧`).requestIds, bad).toEqual([]);
+    }
   });
 });

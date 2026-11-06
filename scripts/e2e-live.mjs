@@ -109,7 +109,9 @@ group('0. Stack is up');
 await test('agent /health', async () => { eq((await req(AGENT, '/health')).status, 200, 'status'); });
 await test('backend /health', async () => { eq((await req(BACKEND, '/health')).status, 200, 'status'); });
 await test('app serves the landing page', async () => {
-  const r = await req(APP, '/', { timeout: 60000 });
+  // `next dev` compiles the page on the first hit, which can exceed a minute under load: 90 s, one retry.
+  const landing = () => req(APP, '/', { timeout: 90000 });
+  const r = await landing().catch(() => landing());
   eq(r.status, 200, 'status');
   assert(/0G Study/i.test(r.text), 'landing page does not mention "0G Study"');
 });
@@ -247,7 +249,8 @@ await test('chat reply carries a 0G request-id proof marker', async () => {
   assert(/pong/i.test(reply), `unexpected reply: ${reply.slice(0, 200)}`);
   const m = reply.match(MARKER_RE);
   assert(m, `no ⟦0g:…⟧ marker at the end of the reply: ${JSON.stringify(reply.slice(-120))}`);
-  assert(m[1].split(',').every((id) => /^[A-Za-z0-9-]{8,64}$/.test(id)), `bad request ids: ${m[1]}`);
+  // Each entry is a request id, optionally with the router's x-0g-e2ee value (`id~none`, `id~sealed`).
+  assert(m[1].split(',').every((id) => /^[A-Za-z0-9-]{8,64}(~[a-z]{1,16})?$/.test(id)), `bad request ids: ${m[1]}`);
 }, { skip: off });
 await test("/usage counted the call for that student only (not for another student)", async () => {
   const r = await req(AGENT, '/usage', { headers: bearer(studyToken()) });

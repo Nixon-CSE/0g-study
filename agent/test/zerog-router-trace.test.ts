@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { makeTracedFetch, drainRouterCalls, usageToday, resetRouterTrace, callsTodayFor } from '../src/providers/zerog-router.js';
 import { runWithContext } from '../src/runtime/request-context.js';
 import { formatRequestIdMarker } from '../src/runtime/agent.js';
@@ -63,6 +63,20 @@ describe('formatRequestIdMarker', () => {
     expect(formatRequestIdMarker([null])).toBe('');
     expect(formatRequestIdMarker([])).toBe('');
   });
+
+  it('carries the router\'s x-0g-e2ee value per request id, verbatim (P4)', async () => {
+    expect(formatRequestIdMarker([{ requestId: 'a', e2ee: 'sealed' }, { requestId: 'b', e2ee: 'none' }, { requestId: 'c', e2ee: null }, { requestId: null, e2ee: 'sealed' }]))
+      .toBe('\n\n⟦0g:a~sealed,b~none,c⟧');
+    expect(formatRequestIdMarker([{ requestId: 'a', e2ee: 'Sealed;x' }])).toBe('\n\n⟦0g:a⟧');
+    resetRouterTrace();
+    const f = makeTracedFetch(async () => json({ usage: { total_tokens: 1 } }, { 'x-request-id': 'r1', 'x-0g-e2ee': 'sealed' }));
+    const g = makeTracedFetch(async () => json({ usage: { total_tokens: 1 } }, { 'x-request-id': 'r2', 'x-0g-e2ee': 'none' }));
+    const h = makeTracedFetch(async () => json({ usage: { total_tokens: 1 } }, { 'x-request-id': 'r3', 'x-0g-e2ee': '<script>' }));
+    const ctx = { calls: [] as any[] };
+    await runWithContext(ctx, async () => { await f('https://router/v1/embeddings'); await g('https://router/v1/chat/completions'); await h('https://router/v1/chat/completions'); });
+    expect(ctx.calls.map((c) => c.e2ee)).toEqual(['sealed', 'none', null]);
+    expect(formatRequestIdMarker(ctx.calls)).toBe('\n\n⟦0g:r1~sealed,r2~none,r3⟧');
+  });
 });
 
 import { pickRequestId, withThinkingOff } from '../src/providers/zerog-router.js';
@@ -87,6 +101,36 @@ describe('router quirks', () => {
     await f('https://r/v1/chat/completions', { method: 'POST', body: JSON.stringify({ model: 'qwen2.5-vl-72b-instruct' }) });
     expect(seen[0].chat_template_kwargs).toBeUndefined();
     expect(seen[1].chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+  describe('gemini', () => {
+    const OFF = { google: { thinking_config: { thinking_budget: 0 } } };
+    const run = async (url: string, body: object) => {
+      const seen: any[] = [];
+      const f = withThinkingOff((async (_u: any, init: any) => { seen.push(JSON.parse(init.body)); return new Response('{}'); }) as any);
+      await f(url, { method: 'POST', body: JSON.stringify(body) });
+      return seen[0];
+    };
+    const CHAT = 'https://r/v1/chat/completions';
+    afterEach(() => { delete process.env.ZEROG_THINKING; });
+
+    it('sets a zero thinking budget on gemini chat calls, keeping the rest of the body', async () => {
+      const tools = [{ type: 'function', function: { name: 't' } }];
+      const b = await run(CHAT, { model: 'gemini-2.5-flash', max_tokens: 1500, tools });
+      expect(b).toEqual({ model: 'gemini-2.5-flash', max_tokens: 1500, tools, extra_body: OFF });
+      expect(b.chat_template_kwargs).toBeUndefined();
+      expect((await run(CHAT, { model: 'Gemini-3.5-Flash' })).extra_body).toEqual(OFF);
+    });
+    it('only gemini, only chat completions; a caller-set extra_body is kept', async () => {
+      expect((await run(CHAT, { model: 'deepseek-v4.1-flash' })).extra_body).toBeUndefined();
+      expect((await run(CHAT, { model: 'gpt-5.4-mini' })).extra_body).toBeUndefined();
+      expect((await run('https://r/v1/models', { model: 'gemini-2.5-flash' })).extra_body).toBeUndefined();
+      const own = { google: { thinking_config: { thinking_budget: 512 } } };
+      expect((await run(CHAT, { model: 'gemini-2.5-flash', extra_body: own })).extra_body).toEqual(own);
+    });
+    it('ZEROG_THINKING=on leaves gemini thinking on', async () => {
+      process.env.ZEROG_THINKING = 'on';
+      expect((await run(CHAT, { model: 'gemini-2.5-flash' })).extra_body).toBeUndefined();
+    });
   });
 });
 

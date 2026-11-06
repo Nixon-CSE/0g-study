@@ -4,7 +4,7 @@
 
 ## Short description
 
-Photograph your notes. A pod of three AI agents — a Note Reader, a Tutor and an Examiner — turns them into a clear explanation, six flashcards and a quiz, in one channel where every hand-off is visible. A daily study streak brings you back tomorrow. Every reply runs on 0G Private Computer and shows the 0G request ID that produced it.
+Photograph your notes. A pod of three AI agents — a Note Reader, a Tutor and an Examiner — turns them into a clear explanation, six flashcards and a quiz, in one channel where every hand-off is visible. A daily study streak brings you back tomorrow. Every reply goes through 0G Private Computer and shows the 0G request IDs that produced it; the study-memory embeddings run on a TEE-private provider, while the chat and vision models are not TEE-private.
 
 **What breaks without 0G:** Remove 0G and the pod stops: the Note Reader can't read the photo, and the Tutor and Examiner have no inference.
 
@@ -28,7 +28,7 @@ Photograph your notes. A pod of three AI agents — a Note Reader, a Tutor and a
 
 | Requirement | How |
 |---|---|
-| Inference on 0G Private Computer in the main flow, with request IDs | All three pod agents use the `zerog-router` provider (`https://router-api.0g.ai/v1`). The photo is read by a 0G vision model (`gemini-2.5-flash` in the demo, set by `ZEROG_VISION_MODEL`; the code default is `qwen2.5-vl-72b-instruct`) through the `read_notes` tool; explanations, flashcards and grading use `deepseek-v4.1-flash`. Study memory embeds every transcribed page with `qwen3-embedding-0.6b` on 0G (`/v1/embeddings`), and those request IDs are in the badge too. Every call is traced; the request IDs of each turn are shown as a copyable badge on the reply. |
+| Inference on 0G Private Computer in the main flow, with request IDs | All three pod agents use the `zerog-router` provider (`https://router-api.0g.ai/v1`). The photo is read by a 0G vision model (`gemini-2.5-flash` in the demo, set by `ZEROG_VISION_MODEL`; the code default is `qwen2.5-vl-72b-instruct`) through the `read_notes` tool; explanations, flashcards and grading use `deepseek-v4.1-flash`. Study memory embeds every transcribed page with `qwen3-embedding-0.6b` on 0G (`/v1/embeddings`), and those request IDs are in the badge too. Every call is traced; the request IDs of each turn are shown as a copyable badge on the reply, each with the router's `x-0g-e2ee` value. **Privacy, exactly:** the embeddings run on a TEE-private provider (`TeeML`/TDX, "Private" on pc.0g.ai); the chat model (`deepseek-v4.1-flash`, served via aliyun) and the vision model (`gemini-2.5-flash`) do not (no TEE metadata, `x-0g-e2ee: none`). |
 | A working app with a reason to come back tomorrow | A per-user daily study streak and a growing flashcard count in the status bar, plus a **study memory** (RAG on 0G embeddings): the Tutor connects today's notes to your notes from earlier days and cites them (`[notes · 2026-11-05 · #2]`), and the Examiner quizzes you on them, so the pod gets better at *you* the more days you study. The Examiner keeps quizzing you; the composer is pre-filled so the quiz loop needs no typing beyond the answer. |
 | One sentence on what breaks without 0G | See above; it is also on the home page and in the README. |
 | Bonus: 0G account with a decreasing credit balance | **Implemented as "connect your 0G account"** (feature flag). The Router has no OAuth flow, so the user pastes their own `sk-` API key and a read-only `mk-` management key from pc.0g.ai. Their pod calls are billed to their own deposit, and the status bar shows `Credits: X 0G` from `GET /v1/account/balance`, re-read after each reply, so it goes down as they study. Keys are stored encrypted server-side and never returned to the browser. It is not a one-click "Sign in with 0G" button, because 0G does not offer one to third-party apps. |
@@ -47,7 +47,7 @@ Photograph your notes. A pod of three AI agents — a Note Reader, a Tutor and a
 - The 0G key never reaches the browser. Study endpoints require a backend-signed token; a user can only read their own streak. Per-user daily caps on 0G calls (30) and photo uploads (20). Photos are deleted after 24 hours.
 - A student can only retrieve their own notes. Each student has a separate index, `/study/recall` answers only for the token's user, and `/chat/message` accepts a `studentId` only from the backend. Retrieved notes are treated as untrusted data (a photographed prompt injection is not followed).
 - If 0G fails, the agent says so in one line; the Note Reader never invents notes it could not read.
-- The request ID proves which 0G Private Computer calls produced a reply and can be matched in the pc.0g.ai dashboard. The app does not verify TEE attestations itself, and we make no hardware claims beyond 0G's own description of Private Computer.
+- The request ID proves which 0G Private Computer calls produced a reply and can be matched in the pc.0g.ai dashboard. Only the embedding calls run on a TEE-private provider; chat and vision calls do not (checked with `agent/scripts/smoke-private.mjs`). The app does not verify TEE attestations itself.
 
 ## Built on (existing work)
 
