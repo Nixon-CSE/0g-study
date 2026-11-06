@@ -33,6 +33,46 @@ export interface EmbedOptions {
   /** Max characters per HTTP call; the model's context is 32k tokens, so stay well below. */
   batchChars?: number;
   timeoutMs?: number;
+  /** Retry policy for transient failures (tests shorten or stub it). */
+  retry?: Partial<RetryPolicy>;
+}
+
+/**
+ * Transient failures (network errors, HTTP 429 and 5xx) are retried with exponential backoff and jitter,
+ * honouring Retry-After. Every attempt goes through routerFetch, so each one is traced and counted
+ * toward the daily cap. Other 4xx, timeouts (already 30 s each) and bad responses are not retried.
+ */
+export interface RetryPolicy {
+  attempts: number;
+  baseMs: number;
+  /** Upper bound on the total time spent waiting between attempts. */
+  maxTotalWaitMs: number;
+  sleep: (ms: number) => Promise<void>;
+  random: () => number;
+}
+export const DEFAULT_RETRY: RetryPolicy = {
+  attempts: 3, baseMs: 1000, maxTotalWaitMs: 6000,
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)), random: Math.random,
+};
+
+export function isRetryable(e: EmbeddingError): boolean {
+  return e.kind === 'network' || (e.kind === 'http' && (e.status === 429 || (e.status ?? 0) >= 500));
+}
+
+/** Retry-After in ms (delta-seconds or an HTTP date); null when absent or unparseable. Pure. */
+export function parseRetryAfter(v: string | null | undefined, now: number = Date.now()): number | null {
+  if (!v) return null;
+  const t = v.trim();
+  if (/^\d+(\.\d+)?$/.test(t)) return Math.round(Number(t) * 1000);
+  const at = Date.parse(t);
+  return Number.isFinite(at) ? Math.max(0, at - now) : null;
+}
+
+/** Wait before retry number `retry` (1-based): base·2^(retry-1) with ±25 % jitter, or Retry-After. Pure. */
+export function backoffMs(retry: number, p: Pick<RetryPolicy, 'baseMs' | 'random'>, retryAfterMs: number | null): number {
+  if (retryAfterMs !== null) return retryAfterMs;
+  const exp = p.baseMs * 2 ** (retry - 1);
+  return Math.round(exp * (0.75 + 0.5 * p.random()));
 }
 
 export function embedModelName(): string {
@@ -61,7 +101,9 @@ export async function embedTexts(texts: string[], opts: EmbedOptions = {}): Prom
 
   const vectors: Float32Array[] = [];
   const requestIds: (string | null)[] = [];
-  for (const batch of planBatches(texts, opts.batchSize ?? 32, opts.batchChars ?? 48_000)) {
+  const envBase = Number(process.env.ZEROG_EMBED_RETRY_BASE_MS);
+  const policy: RetryPolicy = { ...DEFAULT_RETRY, ...(Number.isFinite(envBase) && envBase >= 0 && process.env.ZEROG_EMBED_RETRY_BASE_MS ? { baseMs: envBase } : {}), ...(opts.retry ?? {}) };
+  const attempt = async (batch: string[]): Promise<Response> => {
     let res: Response;
     try {
       res = await routerFetch(`${routerBaseUrl()}/embeddings`, {
@@ -76,9 +118,30 @@ export async function embedTexts(texts: string[], opts: EmbedOptions = {}): Prom
     }
     requestIds.push(pickRequestId(res.headers.get('x-request-id')));
     if (!res.ok) {
+      const err = new EmbeddingError(`0G embeddings returned HTTP ${res.status}`, 'http', res.status);
+      (err as EmbeddingError & { retryAfterMs?: number | null }).retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
       await res.body?.cancel().catch(() => {});
-      throw new EmbeddingError(`0G embeddings returned HTTP ${res.status}`, 'http', res.status);
+      throw err;
     }
+    return res;
+  };
+  const withRetry = async (batch: string[]): Promise<Response> => {
+    let waited = 0;
+    for (let n = 1; ; n++) {
+      try {
+        return await attempt(batch);
+      } catch (e) {
+        const err = e as EmbeddingError & { retryAfterMs?: number | null };
+        if (n >= policy.attempts || !isRetryable(err)) throw err;
+        const wait = backoffMs(n, policy, err.retryAfterMs ?? null);
+        if (waited + wait > policy.maxTotalWaitMs) throw err; // Retry-After longer than our budget: give up now.
+        waited += wait;
+        await policy.sleep(wait);
+      }
+    }
+  };
+  for (const batch of planBatches(texts, opts.batchSize ?? 32, opts.batchChars ?? 48_000)) {
+    const res = await withRetry(batch);
     let body: any;
     try { body = await res.json(); } catch { throw new EmbeddingError('0G embeddings: response is not JSON', 'bad-response'); }
     const data = Array.isArray(body?.data) ? [...body.data] : null;
