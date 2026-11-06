@@ -1,0 +1,5 @@
+# The Vercel CLI uploads local files and doesn't use .gitignore. Only the app may ever leave this machine.
+/*
+!/app
+**/.env
+**/.env.*
