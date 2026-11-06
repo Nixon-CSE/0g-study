@@ -130,10 +130,6 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
     );
   }
 
-  const estimatedCost = text.length > 3
-    ? (text.split(" ").length * 0.00015).toFixed(5)
-    : null;
-
   return (
     <div className="px-4 pb-6 relative">
       {/* @ mention autocomplete */}
@@ -238,13 +234,6 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
           className="flex-1 bg-transparent py-2.5 text-sm text-[var(--foreground)] focus:outline-none placeholder-[var(--bf-gray)]"
           style={{ color: "var(--bf-white)" }}
         />
-
-        {/* Cost estimate */}
-        {estimatedCost && (
-          <span className="text-xs flex-shrink-0 pr-2" style={{ color: "var(--bf-symbol)" }}>
-            ~{estimatedCost} 0G
-          </span>
-        )}
 
         {/* Right icons */}
         <div className="flex items-center gap-0.5 pr-2 flex-shrink-0">
