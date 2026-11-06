@@ -109,7 +109,9 @@ group('0. Stack is up');
 await test('agent /health', async () => { eq((await req(AGENT, '/health')).status, 200, 'status'); });
 await test('backend /health', async () => { eq((await req(BACKEND, '/health')).status, 200, 'status'); });
 await test('app serves the landing page', async () => {
-  const r = await req(APP, '/', { timeout: 60000 });
+  // `next dev` compiles the page on the first hit, which can exceed a minute under load: 90 s, one retry.
+  const landing = () => req(APP, '/', { timeout: 90000 });
+  const r = await landing().catch(() => landing());
   eq(r.status, 200, 'status');
   assert(/0G Study/i.test(r.text), 'landing page does not mention "0G Study"');
 });

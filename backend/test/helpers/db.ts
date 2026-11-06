@@ -7,7 +7,8 @@ let client: MongoClient | null = null;
 export interface TestDb { db: Db; uri: string; }
 
 export async function startTestDb(): Promise<TestDb> {
-  server = await MongoMemoryServer.create();
+  // The default 10 s launch limit fails under load (full test runs on a busy machine).
+  server = await MongoMemoryServer.create({ instance: { launchTimeout: 60_000 } });
   const uri = server.getUri();
   client = new MongoClient(uri);
   await client.connect();
