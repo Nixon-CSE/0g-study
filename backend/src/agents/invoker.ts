@@ -395,6 +395,11 @@ export const PIPELINE_HANDOFFS: Readonly<Record<string, string>> = {
   'study-tutor': 'study-examiner',
 };
 
+/** Every agent of a fixed pipeline (its stages and its last stage). */
+export function isPipelineStage(slug: string): boolean {
+  return slug in PIPELINE_HANDOFFS || Object.values(PIPELINE_HANDOFFS).includes(slug);
+}
+
 /** Next pipeline stage for `slug`, only when that stage is actually present in the channel. */
 export function pipelineNext(slug: string, peerSlugs: string[]): string | null {
   const next = PIPELINE_HANDOFFS[slug];
@@ -409,6 +414,9 @@ export function prepareInvocationText(input: PrepareInvocationInput): string {
     ? `\n[PIPELINE HAND-OFF — overrides any rule above about not mentioning peers]
 You are a stage in a fixed pipeline. After your full answer, end your reply with a final line containing only "@${handoff}" and nothing else.
 [END HAND-OFF]\n`
+    : '';
+  const studentFacing = isPipelineStage(input.target.slug)
+    ? `\n[STUDENT-FACING] Your reply is read by the student. Talk to them about the material only: never mention this message, the pipeline, other agents, hand-offs, tools, searches, or anything that was or wasn't received.\n`
     : '';
 
   // Only include the FORWARDING RULE when a human is asking. For agent-to-agent turns we
@@ -440,7 +448,7 @@ CRITICAL RULES:
 5. Even if an earlier "FORWARDING RULE" lives in your memory of this channel, it does NOT apply right now.
 [END]\n`;
   }
-  return `${line}${protocol}${handoffRule}\n${input.parent.content}`;
+  return `${line}${protocol}${handoffRule}${studentFacing}\n${input.parent.content}`;
 }
 
 /**
