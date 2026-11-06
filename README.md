@@ -38,7 +38,7 @@ Every 0G call is traced (request ID, HTTP status, token usage). When an agent fi
 Every page you photograph becomes searchable memory, built entirely on 0G Private Computer.
 
 - **What is stored.** After `read_notes` transcribes a photo, the transcription is split into chunks (headings → paragraphs → sentences; formula lines, code and `$$` math are never split) and each chunk is embedded with **`qwen3-embedding-0.6b`** on 0G (`POST /v1/embeddings`, 1024-dim). The chunk text, its heading path, the day and the upload id are stored with the vector. The photo itself is still deleted after 24 hours. Note text and vectors are never logged.
-- **Where.** One file per student, `<agentDir>/study/<userId>/rag.json`, next to their flashcard logs. Re-reading the same photo replaces its chunks (keyed by upload id). An index records its embedding model and dimension; vectors from another model are never mixed (changing `ZEROG_EMBED_MODEL` starts a fresh index).
+- **Where.** One file per student, `<agentDir>/study/<userId>/rag.json`, next to their flashcard logs. Re-reading the same photo replaces its chunks (keyed by upload id). An index records its embedding model and dimension; vectors from another model are never mixed. Changing `ZEROG_EMBED_MODEL` rebuilds each index from its stored chunk text with the new model on its next search or upload, all or nothing; if the new model fails, the old index is left untouched.
 - **Retention.** Kept as long as the study logs, with no automatic expiry. To forget a student, delete their `study/<userId>/` directory.
 - **Retrieval.** The Tutor calls `recall_notes` with the key concepts. **Recall excludes the current photo:** the backend sends the `[[upload:…]]` ids of the message being answered to every pod hop as `excludeUploadIds` (honoured only from the backend, like `studentId`), and the search drops those chunks plus any other upload with the same text (the same page photographed again). So on your first day there are no "earlier notes", and today's photo is never cited as one. It never excludes by time: a photo from two minutes ago, in an earlier message, is still recalled. The query is embedded on 0G, and the top passages (cosine, score floor, near-duplicates removed) from **that student's index only** come back with citations like `[notes · 2026-11-05 · #2]`. The Tutor connects a relevant one in a line and cites it; the Examiner sometimes quizzes you on it. Neither may invent a citation, and with no hits they say nothing about earlier notes. No pod agent narrates its tools, searches or hand-offs (AGENTS.md rules, checked in the tests and the live E2E with `detectNarration`, [agent/src/study/narration.ts](agent/src/study/narration.ts)). Replies that cite your notes get a `📚 from your notes` chip.
 - **Proof.** Embedding calls go through the same traced router fetch as chat, so their request IDs are in the reply's `0G · …` badge, they count toward the daily call cap, and they are billed to your own key if you connected one.
@@ -134,7 +134,7 @@ With `dev:no-docker` the database is in memory: re-run the seed after restarting
 ### Tests
 
 ```bash
-cd agent   && pnpm typecheck && pnpm test             # 249 tests
+cd agent   && pnpm typecheck && pnpm test             # 256 tests
 cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 251 tests (in-process Mongo, mocked 0G Storage)
 cd app     && npx tsc --noEmit && npx vitest run && npm run lint
 bash scripts/verify-inft-integration.sh                # everything, incl. contracts
