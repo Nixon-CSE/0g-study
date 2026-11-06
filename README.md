@@ -145,8 +145,8 @@ With `dev:no-docker` the database is in memory: re-run the seed after restarting
 ### Tests
 
 ```bash
-cd agent   && pnpm typecheck && pnpm test             # 265 tests
-cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 255 tests (in-process Mongo, mocked 0G Storage)
+cd agent   && pnpm typecheck && pnpm test             # 313 tests
+cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 261 tests (in-process Mongo, mocked 0G Storage)
 cd app     && npx tsc --noEmit && npx vitest run && npm run lint
 bash scripts/verify-inft-integration.sh                # everything, incl. contracts
 ```

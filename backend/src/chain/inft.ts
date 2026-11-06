@@ -5,12 +5,10 @@
  *   - readContract()   — returns a read-only Contract bound to the injected provider
  *   - writerContract() — returns a signer-bound Contract for write calls
  *
- * ABI is sourced from contracts/abi/BonFireAgentINFT.json.
+ * ABI: chain/bonfire-agent-inft-abi.ts, generated from contracts/abi/BonFireAgentINFT.json.
  */
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — ABI file may not exist in all environments
-import inftAbi from '../../../contracts/abi/BonFireAgentINFT.json' assert { type: 'json' };
+import inftAbi from './bonfire-agent-inft-abi.js';
 import { ethers } from 'ethers';
 
 // ---------------------------------------------------------------------------

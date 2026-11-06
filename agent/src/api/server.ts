@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { corsOrigin } from '../config/production.js';
 import { serve } from '@hono/node-server';
 import { healthRoutes } from './routes/health.js';
 import { skillsRoutes } from './routes/skills.js';
@@ -42,7 +43,7 @@ export interface ApiDeps {
 export function buildApi(d: ApiDeps) {
   const app = new Hono();
   app.use('*', cors({
-    origin: (o) => o ?? '*',
+    origin: (o) => corsOrigin(o),
     allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
     credentials: false,

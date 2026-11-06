@@ -84,3 +84,6 @@ backend/voice-worker/.pytest_cache/
 !scripts/fixtures/*.png
 
 .logs/
+
+# Production secrets for the deploy (never commit)
+deploy/.env.*

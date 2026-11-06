@@ -3,5 +3,9 @@ services:
     build: { context: .., dockerfile: docker/Dockerfile }
     ports: ["7777:7777"]
     env_file: ../.env
+    # Local use: the production boot checks stay off, and tenants stay out of the example directory.
+    environment:
+      NODE_ENV: development
+      TENANTS_FILE: /app/data/tenants.json
     volumes:
       - ../examples/default-agent:/agent

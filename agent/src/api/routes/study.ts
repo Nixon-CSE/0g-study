@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { callsTodayFor, usageToday } from '../../providers/zerog-router.js';
 import { runWithContext, type RequestContext } from '../../runtime/request-context.js';
 import { recallNotes } from '../../rag/notes.js';
 import { isSafeId, studyStats } from '../../study/store.js';
-import { checkUpload, saveUpload } from '../../study/uploads.js';
+import { checkUpload, MAX_UPLOAD_CHARS, saveUpload } from '../../study/uploads.js';
 import { studyAuth, takeUploadSlot } from '../../study/auth.js';
 import { accountsEnabled, cachedUsageHistory, deleteUserKeys, fetchApiKeys, fetchBalance, fetchUsageHistory, forgetUsageHistory, keyFormatError, loadUserKeys, publicBalance, saveUserKeys, verifyUserKeys, type UserKeys } from '../../study/zerog-account.js';
 
@@ -20,6 +21,9 @@ export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBala
   const app = new Hono<{ Variables: { studyUser?: string } }>();
   app.use('/usage', studyAuth);
   app.use('/uploads', studyAuth);
+  // Enforced while the body streams in, so it holds without a Content-Length and behind any proxy
+  // (Railway's edge sets no size limit of its own). The margin is the JSON around the data URL.
+  app.use('/uploads', bodyLimit({ maxSize: MAX_UPLOAD_CHARS + 64 * 1024, onError: (c) => c.json({ error: 'image too large' }, 413) }));
   app.use('/study/*', studyAuth);
 
   // A signed-in student sees only their own calls and tokens. Open dev mode (no STUDY_JWT_SECRET, no

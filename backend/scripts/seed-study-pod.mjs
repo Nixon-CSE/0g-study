@@ -11,6 +11,9 @@
 //      a #study text channel, and invites the three agents as server members.
 //
 // Env: MONGODB_URI, MONGODB_DB (default bonfire), EMBER_AGENT_BASE_URL (default http://localhost:7777).
+// EMBER_AGENT_BASE_URL is the origin the BACKEND uses, stored on each agent. On Railway that can be a
+// private *.railway.internal address your laptop can't reach, so AGENT_PUBLIC_URL (default: the same)
+// is where this script registers the tenants. For production use ./seed-production.sh.
 // The agent runtime must be running so the tenants can be registered.
 import 'dotenv/config';
 import fs from 'node:fs';
@@ -25,6 +28,7 @@ import { collections } from '../src/db/types.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const examples = path.resolve(here, '../../agent/examples');
 const AGENT_BASE_URL = (process.env.EMBER_AGENT_BASE_URL || 'http://localhost:7777').replace(/\/$/, '');
+const AGENT_REACHABLE_URL = (process.env.AGENT_PUBLIC_URL || AGENT_BASE_URL).replace(/\/$/, '');
 const ADMIN = process.env.AGENT_ADMIN_TOKEN ? { 'x-agent-admin-token': process.env.AGENT_ADMIN_TOKEN } : {};
 
 const POD = [
@@ -51,13 +55,13 @@ async function upsertTenant(p) {
     slug: p.slug, name: p.name, description: p.description, tags: p.tags,
     soul: read('SOUL.md'), agents: read('AGENTS.md'), llm: { provider: 'zerog-router' },
   };
-  const post = await fetch(`${AGENT_BASE_URL}/tenants`, {
+  const post = await fetch(`${AGENT_REACHABLE_URL}/tenants`, {
     method: 'POST', headers: { 'content-type': 'application/json', ...ADMIN }, body: JSON.stringify(body),
   });
   if (post.ok) return 'created';
   if (post.status !== 409) throw new Error(`POST /tenants ${p.slug}: HTTP ${post.status} ${await post.text()}`);
   const { slug: _s, ...patch } = body;
-  const res = await fetch(`${AGENT_BASE_URL}/tenants/${p.slug}`, {
+  const res = await fetch(`${AGENT_REACHABLE_URL}/tenants/${p.slug}`, {
     method: 'PATCH', headers: { 'content-type': 'application/json', ...ADMIN }, body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error(`PATCH /tenants/${p.slug}: HTTP ${res.status} ${await res.text()}`);
@@ -97,6 +101,10 @@ try {
       console.log(`agent ${p.slug}: created`);
     } else {
       console.log(`agent ${p.slug}: exists`);
+      if (a.baseUrl !== AGENT_BASE_URL) {
+        await db.collection(collections.agents).updateOne({ _id: a._id }, { $set: { baseUrl: AGENT_BASE_URL } });
+        console.log(`  baseUrl updated to ${AGENT_BASE_URL}`);
+      }
     }
     agentDocs.push(a);
   }

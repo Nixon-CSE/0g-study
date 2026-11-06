@@ -46,3 +46,50 @@ jobs:
       - run: npx tsc --noEmit
       - run: npx vitest run
       - run: npm run lint
+
+  # The real images, built from the same contexts Railway uses (Root Directory agent/ and backend/), booted
+  # with throwaway secrets on an empty volume, restarted, and checked from outside. No 0G call is made.
+  docker:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports: ['27017:27017']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build images
+        run: |
+          docker build -t study-agent -f agent/docker/Dockerfile agent
+          docker build -t study-backend backend
+      - name: Boot on an empty volume
+        run: |
+          TOKEN=$(openssl rand -hex 32); JWT=$(openssl rand -hex 32); APP=https://app.example
+          echo "TOKEN=$TOKEN" >> "$GITHUB_ENV"; echo "JWT=$JWT" >> "$GITHUB_ENV"; echo "APP=$APP" >> "$GITHUB_ENV"
+          docker volume create agent-data
+          docker run -d --name agent --network host -v agent-data:/agent -e PORT=7777 -e ZEROG_API_KEY=sk-placeholder \
+            -e AGENT_ADMIN_TOKEN=$TOKEN -e STUDY_JWT_SECRET=$JWT -e STUDY_ALLOWED_ORIGINS=$APP study-agent
+          docker run -d --name backend --network host -e PORT=8080 -e MONGODB_URI=mongodb://127.0.0.1:27017 -e MONGODB_DB=ci \
+            -e JWT_SECRET=$JWT -e PRIVY_APP_ID=ci -e PRIVY_APP_SECRET=ci -e CORS_ORIGINS=$APP \
+            -e EMBER_AGENT_BASE_URL=http://localhost:7777 -e AGENT_ADMIN_TOKEN=$TOKEN study-backend
+          for p in 7777 8080; do
+            for i in $(seq 1 60); do curl -sf -m 2 localhost:$p/health >/dev/null && break; sleep 1; done
+            curl -sf -m 2 localhost:$p/health || { docker logs agent; docker logs backend; exit 1; }; echo
+          done
+          docker logs agent 2>&1 | grep 'entrypoint:'
+      - name: Refuses to start unprotected
+        run: |
+          if docker run --rm study-agent; then echo "agent started without secrets"; exit 1; fi
+          if docker run --rm -e DEV_MEMORY_MONGO=1 -e MONGODB_URI=x -e MONGODB_DB=x -e JWT_SECRET=$JWT study-backend; then echo "backend started unsafely"; exit 1; fi
+      - name: Data survives a redeploy
+        run: |
+          docker exec agent sh -c 'mkdir -p /agent/study/ci && echo kept > /agent/study/ci/marker && echo edited >> /agent/SOUL.md'
+          docker rm -f agent
+          docker run -d --name agent --network host -v agent-data:/agent -e PORT=7777 -e ZEROG_API_KEY=sk-placeholder \
+            -e AGENT_ADMIN_TOKEN=$TOKEN -e STUDY_JWT_SECRET=$JWT -e STUDY_ALLOWED_ORIGINS=$APP study-agent
+          for i in $(seq 1 60); do curl -sf -m 2 localhost:7777/health >/dev/null && break; sleep 1; done
+          docker logs agent 2>&1 | grep 'entrypoint: 0 default'
+          test "$(docker exec agent cat /agent/study/ci/marker)" = kept
+          docker exec agent grep -q edited /agent/SOUL.md
