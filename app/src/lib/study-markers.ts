@@ -1,5 +1,6 @@
 // Markers embedded in message text (a pragmatic transport for the hackathon; see prd.md G6):
-//   ⟦0g:<id>,<id>⟧   0G Private Computer request ids, appended by the agent runtime
+//   ⟦0g:<id>,<id>⟧   0G Private Computer request ids, appended by the agent runtime; an id may carry the
+//                    router's x-0g-e2ee header value as `<id>~<value>` (e.g. `~sealed`), shown verbatim
 //   [[upload:<id>]]  notes photo attached by the student
 
 const ZG_RE = /\n*⟦0g:([^⟧]*)⟧/g;
@@ -10,26 +11,44 @@ export interface ParsedMarkers {
   text: string;
   requestIds: string[];
   uploadIds: string[];
+  /** x-0g-e2ee value per request id, only for ids that carried one (verbatim, e.g. "sealed" / "none"). */
+  e2ee: Record<string, string>;
 }
 
 // The runtime appends exactly one marker at the very end of a reply. Only that one is proof;
 // a marker anywhere else (echoed by the model, typed by a user) is stripped but never trusted.
 const TRAILING_ZG_RE = /⟦0g:([^⟧]*)⟧\s*$/;
-const REQUEST_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+const REQUEST_ID_RE = /^([A-Za-z0-9-]{1,64})(?:~([a-z]{1,16}))?$/;
 
 export function parseMarkers(content: string): ParsedMarkers {
   const requestIds: string[] = [];
   const uploadIds: string[] = [];
+  const e2ee: Record<string, string> = {};
   const trailing = (content ?? "").match(TRAILING_ZG_RE);
   if (trailing) {
-    const ids = trailing[1].split(",").map((s) => s.trim()).filter(Boolean);
-    if (ids.length > 0 && ids.length <= 20 && ids.every((id) => REQUEST_ID_RE.test(id))) requestIds.push(...ids);
+    const entries = trailing[1].split(",").map((s) => s.trim()).filter(Boolean);
+    const parsed = entries.map((e) => e.match(REQUEST_ID_RE));
+    if (entries.length > 0 && entries.length <= 20 && parsed.every(Boolean)) {
+      for (const m of parsed as RegExpMatchArray[]) {
+        requestIds.push(m[1]);
+        if (m[2]) e2ee[m[1]] = m[2];
+      }
+    }
   }
   const text = (content ?? "")
     .replace(ZG_RE, "")
     .replace(UPLOAD_RE, (_m, id: string) => { uploadIds.push(id); return ""; })
     .trim();
-  return { text, requestIds, uploadIds };
+  return { text, requestIds, uploadIds, e2ee };
+}
+
+/**
+ * Badge tooltip: each request id with the router's own x-0g-e2ee value when it sent one, verbatim.
+ * pc.0g.ai shows TEE-provider calls as "Private"; we print the header rather than infer that label.
+ */
+export function requestIdTooltip(ids: string[], e2ee: Record<string, string>): string {
+  const lines = ids.map((id) => (e2ee[id] ? `${id}  (x-0g-e2ee: ${e2ee[id]})` : id));
+  return `0G Private Computer request id${ids.length > 1 ? "s" : ""} (click to copy):\n${lines.join("\n")}`;
 }
 
 /** 0G proof ids to show for a message: only agent replies can carry proof. */

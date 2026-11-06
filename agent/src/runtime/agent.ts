@@ -17,10 +17,19 @@ import { attachFlashcards } from '../study/flashcards.js';
 import type { TenantRegistry } from '../tenants/registry.js';
 import type { Tenant } from '../tenants/types.js';
 
-/** Marker line carrying 0G request ids; empty string when there are none. The UI strips it and renders a badge. */
-export function formatRequestIdMarker(ids: (string | null)[]): string {
-  const real = ids.filter((i): i is string => !!i);
-  return real.length ? `\n\n⟦0g:${real.join(',')}⟧` : '';
+/**
+ * Marker line carrying 0G request ids; empty string when there are none. The UI strips it and renders a
+ * badge. A call traced with the router's `x-0g-e2ee` header is written `id~<value>` (e.g. `id~sealed`),
+ * so the badge can show it per request id; a bare id means the header was absent.
+ */
+export function formatRequestIdMarker(calls: (string | null | { requestId: string | null; e2ee?: string | null })[]): string {
+  const parts = calls.flatMap((c) => {
+    const id = typeof c === 'object' && c !== null ? c.requestId : c;
+    if (!id) return [];
+    const e2ee = typeof c === 'object' && c !== null && c.e2ee && /^[a-z]{1,16}$/.test(c.e2ee) ? c.e2ee : null;
+    return [e2ee ? `${id}~${e2ee}` : id];
+  });
+  return parts.length ? `\n\n⟦0g:${parts.join(',')}⟧` : '';
 }
 
 /**
@@ -257,7 +266,7 @@ export class AgentRuntime {
       final = attachFlashcards(final, reqCtx.flashcards);
     }
     // 0G Private Computer proof: attach request ids (UI strips this marker and renders a badge).
-    final += formatRequestIdMarker(reqCtx.calls.map((c) => c.requestId));
+    final += formatRequestIdMarker(reqCtx.calls);
     this.sessions.append(sessionId, 'assistant', final);
     await msg.reply(final);
 

@@ -6,7 +6,7 @@ import Avatar from "@/components/shared/Avatar";
 import FlameAvatar from "@/components/shared/FlameAvatar";
 import { useApp } from "@/context/AppContext";
 import AgentProfileModal from "@/components/agent/AgentProfileModal";
-import { parseMarkers, badgeLabel, trustedRequestIds, citedNoteDays } from "@/lib/study-markers";
+import { parseMarkers, badgeLabel, trustedRequestIds, citedNoteDays, requestIdTooltip } from "@/lib/study-markers";
 
 interface ToolCall {
   name: string;
@@ -189,7 +189,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
           {zgIds.length > 0 && (
             <button
               onClick={() => navigator.clipboard?.writeText(zgIds.join(",")).catch(() => {})}
-              title={`0G Private Computer request id${zgIds.length > 1 ? "s" : ""} (click to copy):\n${zgIds.join("\n")}`}
+              title={requestIdTooltip(zgIds, parsed.e2ee)}
               className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-mono"
               style={{ color: "var(--bf-accent)", background: "rgba(129,22,224,0.12)" }}
             >

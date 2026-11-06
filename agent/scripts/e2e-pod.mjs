@@ -56,7 +56,8 @@ async function ask(t, text) {
   return { text: out, ms: Date.now() - t0 };
 }
 
-const ids = (t) => (t.match(/⟦0g:([^⟧]*)⟧/)?.[1] ?? '').split(',').filter(Boolean);
+// Request ids, without the optional `~<x-0g-e2ee>` suffix.
+const ids = (t) => (t.match(/⟦0g:([^⟧]*)⟧/)?.[1] ?? '').split(',').filter(Boolean).map((e) => e.split('~')[0]);
 const lastLine = (t) => t.replace(/\n*⟦0g:[^⟧]*⟧\s*$/, '').trim().split('\n').pop().trim();
 let failures = 0;
 const check = (ok, label) => { console.log(`${ok ? '  ✓' : '  ✗'} ${label}`); if (!ok) failures++; };

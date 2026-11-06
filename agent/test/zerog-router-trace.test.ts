@@ -63,6 +63,20 @@ describe('formatRequestIdMarker', () => {
     expect(formatRequestIdMarker([null])).toBe('');
     expect(formatRequestIdMarker([])).toBe('');
   });
+
+  it('carries the router\'s x-0g-e2ee value per request id, verbatim (P4)', async () => {
+    expect(formatRequestIdMarker([{ requestId: 'a', e2ee: 'sealed' }, { requestId: 'b', e2ee: 'none' }, { requestId: 'c', e2ee: null }, { requestId: null, e2ee: 'sealed' }]))
+      .toBe('\n\n⟦0g:a~sealed,b~none,c⟧');
+    expect(formatRequestIdMarker([{ requestId: 'a', e2ee: 'Sealed;x' }])).toBe('\n\n⟦0g:a⟧');
+    resetRouterTrace();
+    const f = makeTracedFetch(async () => json({ usage: { total_tokens: 1 } }, { 'x-request-id': 'r1', 'x-0g-e2ee': 'sealed' }));
+    const g = makeTracedFetch(async () => json({ usage: { total_tokens: 1 } }, { 'x-request-id': 'r2', 'x-0g-e2ee': 'none' }));
+    const h = makeTracedFetch(async () => json({ usage: { total_tokens: 1 } }, { 'x-request-id': 'r3', 'x-0g-e2ee': '<script>' }));
+    const ctx = { calls: [] as any[] };
+    await runWithContext(ctx, async () => { await f('https://router/v1/embeddings'); await g('https://router/v1/chat/completions'); await h('https://router/v1/chat/completions'); });
+    expect(ctx.calls.map((c) => c.e2ee)).toEqual(['sealed', 'none', null]);
+    expect(formatRequestIdMarker(ctx.calls)).toBe('\n\n⟦0g:r1~sealed,r2~none,r3⟧');
+  });
 });
 
 import { pickRequestId, withThinkingOff } from '../src/providers/zerog-router.js';

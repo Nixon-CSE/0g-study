@@ -29,6 +29,17 @@ export interface RouterCall {
   studentId?: string;
   tokens: number;
   at: string;
+  /**
+   * The router's `x-0g-e2ee` response header, verbatim (e.g. "sealed" for a TEE provider, "none"
+   * otherwise); null when absent. Shown next to the request id on the 0G badge; never inferred.
+   */
+  e2ee?: string | null;
+}
+
+/** A short lowercase token, or null (anything else is dropped rather than echoed). */
+export function e2eeValue(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim().toLowerCase();
+  return /^[a-z]{1,16}$/.test(v) ? v : null;
 }
 
 const pending: RouterCall[] = [];
@@ -121,6 +132,7 @@ export function makeTracedFetch(base: typeof fetch = fetch): typeof fetch {
       tokens,
       studentId: ctx?.studentId,
       at: new Date().toISOString(),
+      e2ee: e2eeValue(res.headers.get('x-0g-e2ee')),
     };
     ctx?.calls.push(call);
     pending.push(call);
