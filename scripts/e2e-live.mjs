@@ -94,6 +94,16 @@ async function chatAgent(body, timeoutMs = 180000) {
   return out;
 }
 
+// Pure helpers shared with the agent/backend (.ts sources; loaded when run under tsx, see header).
+let p2 = null;
+try {
+  const [inv, up, nar, qn] = await Promise.all([
+    import('../backend/src/agents/invoker.ts'), import('../backend/src/agents/upload-markers.ts'),
+    import('../agent/src/study/narration.ts'), import('../agent/src/study/question.ts'),
+  ]);
+  p2 = { prepare: inv.prepareInvocationText, uploadIdsIn: up.uploadIdsIn, detectNarration: nar.detectNarration, looksLikeQuestion: qn.looksLikeQuestion };
+} catch { /* plain node: no .ts loader */ }
+
 // ── 0. preconditions ─────────────────────────────────────────────────────────
 group('0. Stack is up');
 await test('agent /health', async () => { eq((await req(AGENT, '/health')).status, 200, 'status'); });
@@ -328,7 +338,7 @@ await test('the Examiner asks a question drawn from the earlier (first-photo) no
   }, 180000);
   const q = reply.replace(MARKER_RE, '');
   assert(/photosynth|calvin|rubisco|chloroph|thylakoid|nadph|atp|glucose|light reaction|stroma/i.test(q), `question is not about the first photo: ${q.slice(0, 300)}`);
-  assert(q.includes('?'), `no question asked: ${q.slice(0, 200)}`);
+  assert(p2 ? p2.looksLikeQuestion(q) : q.includes('?'), `no question asked: ${q.slice(0, 200)}`);
   assert(!/@study-/.test(q), 'the examiner must not @-mention anyone');
   assert(MARKER_RE.test(reply), 'no ⟦0g:…⟧ marker');
 }, { skip: ragSkip });
@@ -339,13 +349,6 @@ await test('the Examiner asks a question drawn from the earlier (first-photo) no
 // excludeUploadIds (with the admin token, like agentFetch). Model output is stochastic, so the scenario
 // runs E2E_P2_RUNS times (default 3) and the narration / flashcard checks must pass every time.
 group('8. Pod conversation quality — flashcards hand-off, no narration, recall skips today\'s photo');
-let p2 = null;
-try {
-  const [inv, up, nar] = await Promise.all([
-    import('../backend/src/agents/invoker.ts'), import('../backend/src/agents/upload-markers.ts'), import('../agent/src/study/narration.ts'),
-  ]);
-  p2 = { prepare: inv.prepareInvocationText, uploadIdsIn: up.uploadIdsIn, detectNarration: nar.detectNarration };
-} catch { /* plain node: no .ts loader */ }
 const POD = ['study-note-reader', 'study-tutor', 'study-examiner'];
 const NEXT = { 'study-note-reader': 'study-tutor', 'study-tutor': 'study-examiner' };
 const RUNS = Number(process.env.E2E_P2_RUNS ?? 3);
@@ -428,7 +431,7 @@ await everyRun('the Examiner asks a question and mentions nobody', (r) => {
   for (const list of [r.single, r.photo2]) {
     const q = by(list, 'study-examiner').replace(MARKER_RE, '');
     if (!q) return 'no examiner reply (the tutor did not hand off)';
-    if (!q.includes('?')) return `no question: ${q.slice(0, 160)}`;
+    if (!p2.looksLikeQuestion(q)) return `no question: ${q.slice(0, 160)}`;
     if (mentions(q).length) return `examiner mentioned ${mentions(q).join(',')}`;
   }
   return null;
