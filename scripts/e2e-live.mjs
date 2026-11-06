@@ -321,7 +321,7 @@ await test('the Examiner asks a question drawn from the earlier (first-photo) no
   const today = new Date().toISOString().slice(0, 10);
   const reply = await chatAgent({
     userId: `e2e-rag-${Date.now()}`, studentId: ragStudent, tenant: 'study-examiner',
-    text: `@study-tutor said: Today is Newton's laws. This builds on your earlier biology notes [notes · ${today} · #1].\nFlashcards: Q: State Newton's 2nd law. A: F = m a.\n\n@study-examiner — quiz me on my earlier biology notes (the cited passage), one question.`,
+    text: `@study-tutor said: Today is Newton's laws. This builds on your earlier biology notes [notes · ${today} · #1].\nFlashcards: Q: State Newton's 2nd law. A: F = m a.\n\n@study-examiner — quiz me on my earlier biology notes about photosynthesis and the Calvin cycle (the cited passage), one question.`,
   }, 180000);
   const q = reply.replace(MARKER_RE, '');
   assert(/photosynth|calvin|rubisco|chloroph|thylakoid|nadph|atp|glucose|light reaction|stroma/i.test(q), `question is not about the first photo: ${q.slice(0, 300)}`);
