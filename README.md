@@ -44,7 +44,7 @@ Every page you photograph becomes searchable memory, built entirely on 0G Privat
 - **Proof.** Embedding calls go through the same traced router fetch as chat, so their request IDs are in the reply's `0G · …` badge, they count toward the daily call cap, and they are billed to your own key if you connected one.
 - **Untrusted text.** Retrieved passages come back inside a delimited `<retrieved_notes trust="untrusted">` block with a rule not to follow instructions inside it (a photo can contain "ignore previous instructions…"), and the pod's AGENTS.md rules say the same.
 - **Isolation.** A student can only search their own index: `recall_notes` uses the turn's student, `GET /study/recall?q=` answers only for the study token's user, and `/chat/message` honours a `studentId` only from the backend (admin token).
-- **Fallback.** With no notes yet, recall costs no 0G call. If 0G embeddings are down, `read_notes` still returns the notes and `recall_notes` says it can't search past notes; the pod continues without them.
+- **Fallback.** With no notes yet, recall costs no 0G call. Embedding calls retry transient failures (network, 429, 5xx) up to 3 times with backoff (at most ~6 s, honouring Retry-After); each attempt is traced and counted. If 0G embeddings are still down, `read_notes` still returns the notes and keeps the transcription (text only, never the photo) in `study/<userId>/rag-pending.json`; it is indexed before that student's next recall, or at boot / hourly, and dropped after 6 failed attempts or 24 hours. Meanwhile `recall_notes` says it can't search past notes and the pod continues without them. If the Tutor ends a turn without saving flashcards, the runtime makes one follow-up call that forces `study_log`; if that fails too, the reply has no flashcards list.
 - **Server knowledge base.** The same engine ranks a server's `#knowledge-base` documents. The backend (which holds no 0G key) asks the agent's admin-only `/rag/kb/*` routes for the chunks relevant to each message, cited `[kb · <title> · #n]` and within the old 8 KB budget, one index per server. Docs are indexed on create or upload and removed on delete, and missing or stale ones are reconciled on the next retrieval. If retrieval is unavailable the backend falls back to the previous "20 newest docs" block. TEE channels still get no knowledge block.
 
 Code: [agent/src/rag/](agent/src/rag/) (`chunk`, `embed`, `store`, `search`, `notes`, `kb`), [agent/src/api/routes/rag.ts](agent/src/api/routes/rag.ts), [backend/src/agents/kb-rag.ts](backend/src/agents/kb-rag.ts). Check the embedding models with `node agent/scripts/smoke-embeddings.mjs`. On 2026-11-06 it found that both `qwen3-embedding-0.6b` (1024-dim) and `qwen3-embedding-8b` (4096-dim) work, batching is supported, the context is 32k tokens, the request ID comes in `x-request-id`, and both scored 3/3 on a small retrieval check. The default is the 0.6b model: same quality on the sample notes, a quarter of the vector size.
@@ -134,7 +134,7 @@ With `dev:no-docker` the database is in memory: re-run the seed after restarting
 ### Tests
 
 ```bash
-cd agent   && pnpm typecheck && pnpm test             # 230 tests
+cd agent   && pnpm typecheck && pnpm test             # 249 tests
 cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 251 tests (in-process Mongo, mocked 0G Storage)
 cd app     && npx tsc --noEmit && npx vitest run && npm run lint
 bash scripts/verify-inft-integration.sh                # everything, incl. contracts
