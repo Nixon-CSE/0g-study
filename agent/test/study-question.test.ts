@@ -20,11 +20,20 @@ describe('looksLikeQuestion', () => {
     expect(looksLikeQuestion('Correct: water is split in PSII. Next, describe where the O₂ goes. ⟦0g:abc-1⟧')).toBe(true);
   });
 
+  it('accepts an imperative prompt in the middle of a sentence (live E2E 09:41 UTC, run 3)', () => {
+    const run3 = 'A 2 kg ball moving at 3 m/s hits a wall and stops. The wall\'s momentum change is negligible, so "it went into the wall" isn\'t quite the whole story — state where the momentum actually ends up, and explain why the ball\'s change is still consistent with conservation. Answer here in the channel.';
+    expect(looksLikeQuestion(run3)).toBe(true);
+    expect(looksLikeQuestion('Take a 5 kg block on ice, and calculate the force needed to stop it.')).toBe(true);
+  });
+
   it('rejects replies that ask nothing', () => {
     for (const s of [
       'Great work today. The Calvin cycle fixes carbon into sugar.',
       'Answer in the channel.',
       'The key idea is what happens when light is limiting.',
+      'Electrons jump to an excited state, and the energy is passed down the chain.',
+      'Water is split; the oxygen is released as a by-product.',
+      'In the steady state the cycle runs continuously, which explains the stable output.',
       '',
     ]) expect(looksLikeQuestion(s), s).toBe(false);
   });
