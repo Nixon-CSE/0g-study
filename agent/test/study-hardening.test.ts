@@ -195,13 +195,16 @@ describe('read_notes → 0G vision', () => {
     const seen: { url: string; init: RequestInit }[] = [];
     vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
       seen.push({ url, init });
+      if (url.endsWith('/embeddings')) return new Response('{"error":"unavailable"}', { status: 503 });
       return new Response(JSON.stringify({ choices: [{ message: { content: '# Photosynthesis\n- light → sugar' } }], usage: { total_tokens: 321 } }),
         { status: 200, headers: { 'content-type': 'application/json', 'x-request-id': REQ_ID } });
     }));
     const ctx: RequestContext = { studentId: 'hana', calls: [] };
     const r: any = await runWithContext(ctx, () => exec(makeStudyTools(dir).read_notes, { uploadId: id }));
-    expect(r).toEqual({ ok: true, notes: '# Photosynthesis\n- light → sugar' });
-    expect(seen).toHaveLength(1);
+    // The stub fails the follow-up study-memory embeddings call, so indexing fails
+    // gracefully (remembered: false) and read_notes still succeeds — see rag-integration.test.ts.
+    expect(r).toEqual({ ok: true, notes: '# Photosynthesis\n- light → sugar', remembered: false });
+    expect(seen.filter((s) => s.url.endsWith('/chat/completions'))).toHaveLength(1);
     expect(seen[0].url).toMatch(/\/chat\/completions$/);
     const body = JSON.parse(String(seen[0].init.body));
     expect(body.model).toBe('vision-test-model');

@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
-import { usageToday } from '../../providers/zerog-router.js';
+import { callsTodayFor, usageToday } from '../../providers/zerog-router.js';
+import { runWithContext, type RequestContext } from '../../runtime/request-context.js';
+import { recallNotes } from '../../rag/notes.js';
 import { isSafeId, studyStats } from '../../study/store.js';
 import { checkUpload, saveUpload } from '../../study/uploads.js';
 import { studyAuth, takeUploadSlot } from '../../study/auth.js';
@@ -7,6 +9,7 @@ import { accountsEnabled, deleteUserKeys, fetchBalance, loadUserKeys, saveUserKe
 
 /**
  * GET /usage (today's 0G usage) · POST /uploads (notes photo) · GET /study/index (streak + cards)
+ * GET /study/recall?q= (search the student's own past notes; one 0G embeddings call)
  * FR9 (ZEROG_USER_ACCOUNTS=on): GET/POST/DELETE /study/account — connect your own 0G keys, read your balance.
  * All sit behind studyAuth (NFR1): with STUDY_JWT_SECRET set they require the BonFire study token and
  * always answer for the token's user; without it (local dev) `?user=` is used and /study/account is off.
@@ -37,6 +40,32 @@ export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBala
     if (authed && c.req.query('user') && c.req.query('user') !== authed) return c.json({ error: 'forbidden' }, 403);
     if (!isSafeId(user)) return c.json({ error: 'user query param required (letters, digits, - _)' }, 400);
     return c.json(await studyStats(agentDir, user));
+  });
+
+  // Study memory (RAG): read-only search of the caller's own past notes. With a study token the
+  // user is always the token's subject; ?user= for anyone else is refused.
+  app.get('/study/recall', async (c) => {
+    const authed = c.get('studyUser');
+    const user = authed ?? c.req.query('user');
+    if (authed && c.req.query('user') && c.req.query('user') !== authed) return c.json({ error: 'forbidden' }, 403);
+    if (!isSafeId(user)) return c.json({ error: 'user query param required (letters, digits, - _)' }, 400);
+    const q = (c.req.query('q') ?? '').trim();
+    if (!q || q.length > 500) return c.json({ error: 'q required (1-500 chars)' }, 400);
+    const k = Math.min(Math.max(Number(c.req.query('k') ?? 4) || 4, 1), 8);
+    const ctx: RequestContext = { studentId: user, calls: [] };
+    const own = await loadUserKeys(agentDir, user);
+    if (own) ctx.zerogApiKey = own.apiKey;
+    const cap = Number(process.env.STUDY_DAILY_CALL_CAP ?? 30);
+    if (!own && Number.isFinite(cap) && callsTodayFor(user) >= cap) return c.json({ error: 'daily AI call limit reached' }, 429);
+    try {
+      const { hits } = await runWithContext(ctx, () => recallNotes(agentDir, user, q, { k }));
+      return c.json({
+        results: hits.map((h) => ({ citation: h.citation, heading: h.heading, text: h.text, score: h.score })),
+        requestIds: ctx.calls.map((x) => x.requestId).filter(Boolean),
+      });
+    } catch {
+      return c.json({ error: '0G embeddings unavailable' }, 503);
+    }
   });
 
   // ── FR9: the student's own 0G account ────────────────────────────────────────

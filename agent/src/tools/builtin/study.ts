@@ -4,9 +4,14 @@ import { DEFAULT_VISION_MODEL, routerBaseUrl, routerFetch } from '../../provider
 import { currentContext } from '../../runtime/request-context.js';
 import { logStudySet, UPLOAD_ID } from '../../study/store.js';
 import { readUpload } from '../../study/uploads.js';
+import { indexNotes, recallNotes } from '../../rag/notes.js';
+import { formatRetrievedBlock } from '../../rag/search.js';
+import { log } from '../../util/logger.js';
 
-
-/** Study Pod tools: read a photo of notes with 0G vision; log flashcards for the per-user daily streak. */
+/**
+ * Study Pod tools: read a photo of notes with 0G vision (and index it into the student's study memory),
+ * recall passages from the student's own past notes (RAG on 0G embeddings), log flashcards for the streak.
+ */
 export function makeStudyTools(agentDir: string) {
   const read_notes = tool({
     description:
@@ -37,7 +42,18 @@ export function makeStudyTools(agentDir: string) {
         const j: any = await res.json();
         const notes = j?.choices?.[0]?.message?.content;
         if (typeof notes !== 'string' || !notes.trim()) return { ok: false, error: "couldn't read the notes: empty vision response" };
-        return { ok: true, notes };
+        // Study memory: index for this student. A failure here never fails read_notes.
+        const studentId = currentContext()?.studentId;
+        let remembered = false;
+        if (studentId) {
+          try {
+            remembered = (await indexNotes(agentDir, studentId, { uploadId, text: notes })).chunks > 0;
+          } catch (e: any) {
+            // Never log note text or vectors.
+            log.warn({ err: e?.name, kind: e?.kind, status: e?.status }, 'study memory: indexing notes failed');
+          }
+        }
+        return { ok: true, notes, remembered };
       } catch (e: any) {
         return { ok: false, error: `couldn't read the notes: ${String(e?.message ?? e).slice(0, 120)}` };
       }
@@ -61,5 +77,31 @@ export function makeStudyTools(agentDir: string) {
     },
   });
 
-  return { read_notes, study_log };
+  const recall_notes = tool({
+    description:
+      "Search this student's own past study notes (earlier days' photos) for passages related to a query. Returns passages with citations like [notes · 2026-11-05 · #2]. Only cite passages it returns.",
+    parameters: z.object({
+      query: z.string().min(1).max(500),
+      k: z.number().int().min(1).max(8).optional(),
+    }),
+    execute: async ({ query, k }) => {
+      const studentId = currentContext()?.studentId;
+      if (!studentId) return { ok: false, error: 'no student identified for this turn; past notes are not available' };
+      try {
+        const { hits } = await recallNotes(agentDir, studentId, query, { k: k ?? 4 });
+        if (hits.length === 0) return { ok: true, found: 0, note: 'no related past notes; continue normally without citing any' };
+        return {
+          ok: true,
+          found: hits.length,
+          citations: hits.map((h) => `[${h.citation}]`),
+          passages: formatRetrievedBlock(hits, 'retrieved_notes'),
+        };
+      } catch (e: any) {
+        log.warn({ err: e?.name, kind: e?.kind, status: e?.status }, 'study memory: recall failed');
+        return { ok: false, error: "couldn't search past notes right now (0G embeddings unavailable); continue without them and don't cite any" };
+      }
+    },
+  });
+
+  return { read_notes, recall_notes, study_log };
 }
