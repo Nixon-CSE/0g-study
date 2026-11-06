@@ -12,6 +12,7 @@ import { tenantsRoutes } from './routes/tenants.js';
 import { sessionsRoutes } from './routes/sessions.js';
 import { statusRoutes } from './routes/status.js';
 import { studyRoutes } from './routes/study.js';
+import { ragRoutes } from './routes/rag.js';
 import { adminAuth } from './admin-auth.js';
 import type { EventEmitter } from 'node:events';
 import type { WebChatAdapter } from '../channels/web.js';
@@ -56,6 +57,7 @@ export function buildApi(d: ApiDeps) {
   app.route('/', chatRoutes(d.web, d.publicDir));
   app.route('/', tenantsRoutes(d.tenantRegistry));
   app.route('/', studyRoutes(d.agentDir));
+  app.route('/', ragRoutes(d.agentDir));
   app.route('/', sessionsRoutes({ resetSession: d.resetSession }));
   app.route('/', statusRoutes({
     getConfig: d.getConfig,

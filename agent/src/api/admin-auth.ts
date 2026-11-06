@@ -3,7 +3,7 @@ import type { MiddlewareHandler } from 'hono';
 
 /**
  * Guards the runtime's admin surface (MCP servers spawn processes, config, tenants hold agent souls,
- * skill installs, telegram, sessions, the event bus). The browser never needs these; the BonFire
+ * skill installs, telegram, sessions, the event bus, knowledge-base RAG). The browser never needs these; the BonFire
  * backend and local scripts call them server-to-server.
  *
  * - AGENT_ADMIN_TOKEN set (required for any deployment): every admin request must carry
@@ -15,7 +15,7 @@ import type { MiddlewareHandler } from 'hono';
  * Public, intentionally: /health, /status, /chat*, and the Study routes (they have studyAuth).
  */
 export const ADMIN_HEADER = 'x-agent-admin-token';
-export const ADMIN_PREFIXES = ['/mcp', '/config', '/tenants', '/skills', '/channels', '/sessions', '/events'] as const;
+export const ADMIN_PREFIXES = ['/mcp', '/config', '/tenants', '/skills', '/channels', '/sessions', '/events', '/rag'] as const;
 
 export function isAdminPath(p: string): boolean {
   const path = p.replace(/\/+$/, '') || '/';
