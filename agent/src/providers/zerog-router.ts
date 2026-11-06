@@ -38,9 +38,13 @@ export function drainRouterCalls(): RouterCall[] {
   return pending.splice(0, pending.length);
 }
 
-export function usageToday() {
+/**
+ * Today's 0G usage. With `studentId`, only that student's calls (what GET /usage shows a signed-in
+ * student); without it, the whole process (open dev mode, tests). The trace records each call's student.
+ */
+export function usageToday(studentId?: string) {
   const day = new Date().toISOString().slice(0, 10);
-  const calls = today.filter((c) => c.at.startsWith(day));
+  const calls = today.filter((c) => c.at.startsWith(day) && (studentId === undefined || c.studentId === studentId));
   return {
     day,
     calls: calls.length,

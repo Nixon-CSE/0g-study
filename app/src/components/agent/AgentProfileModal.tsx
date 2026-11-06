@@ -6,6 +6,7 @@ import type { Agent } from "@/context/AppContext";
 import Modal from "@/components/shared/Modal";
 import FlameAvatar from "@/components/shared/FlameAvatar";
 import { profileModelLabel } from "@/lib/agent-model-label";
+import { connectionState, CONNECTION_LABEL, type ConnectionId, type ReportedConnections } from "@/lib/agent-connections";
 import SkillManager from "./SkillManager";
 import { bf, type McpServerConfig } from "@/lib/api-bonfire";
 import { ModalLabel, ModalInput } from "@/components/shared/Modal";
@@ -25,6 +26,19 @@ interface Props {
 
 export default function AgentProfileModal({ agent, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<"overview" | "inft" | "skills" | "mcp">("overview");
+  // One request when the profile opens (never per sidebar row): the reported model and live connections.
+  // undefined = still loading, null = the backend couldn't say.
+  type Reported = { model: string | null; connections: ReportedConnections | null } | null;
+  const [loaded, setLoaded] = useState<{ id: string; value: Reported } | null>(null);
+  const reported: Reported | undefined = loaded?.id === agent.id ? loaded.value : undefined;
+  useEffect(() => {
+    let cancelled = false;
+    const id = agent.id;
+    bf.getAgentConfig(id)
+      .then((cfg) => { if (!cancelled) setLoaded({ id, value: { model: cfg.model, connections: cfg.connections ?? null } }); })
+      .catch(() => { if (!cancelled) setLoaded({ id, value: null }); });
+    return () => { cancelled = true; };
+  }, [agent.id]);
 
   return (
     <Modal title="" onClose={onClose} wide maxHeight="70vh">
@@ -79,7 +93,7 @@ export default function AgentProfileModal({ agent, onClose }: Props) {
       {activeTab === "overview" && (
         <div className="flex flex-col gap-4 pt-2">
           {/* Stats grid */}
-          <OverviewStats agentId={agent.id} />
+          <OverviewStats agentId={agent.id} modelLabel={profileModelLabel(reported?.model ?? null)} />
 
           {agent.acquisition && (
             <div className="rounded-lg p-3 text-sm" style={{ background: "var(--bf-quaternary)" }}>
@@ -106,7 +120,7 @@ export default function AgentProfileModal({ agent, onClose }: Props) {
           )}
 
           {/* Adapters */}
-          <AdaptersSection />
+          <AdaptersSection reported={reported === undefined ? undefined : reported?.connections ?? null} />
 
         </div>
       )}
@@ -752,30 +766,26 @@ function InftVisualiser({ agent }: { agent: Agent }) {
 // Adapters
 // ---------------------------------------------------------------------------
 
-const ADAPTERS = [
-  { id: "telegram", label: "Telegram",    Icon: SiTelegram, color: "#2AABEE", active: true  },
-  { id: "whatsapp", label: "WhatsApp",    Icon: SiWhatsapp, color: "#25D366", active: false },
-  { id: "discord",  label: "Discord",     Icon: SiDiscord,  color: "#0d0d0f", active: false },
-  { id: "slack",    label: "Slack",       Icon: SiSlack,    color: "#4A154B", active: false },
-  { id: "x",        label: "X / Twitter", Icon: SiX,        color: "#0d0d0f", active: false },
+const ADAPTERS: { id: ConnectionId; label: string; Icon: typeof SiTelegram; color: string }[] = [
+  { id: "telegram", label: "Telegram",    Icon: SiTelegram, color: "#2AABEE" },
+  { id: "whatsapp", label: "WhatsApp",    Icon: SiWhatsapp, color: "#25D366" },
+  { id: "discord",  label: "Discord",     Icon: SiDiscord,  color: "#0d0d0f" },
+  { id: "slack",    label: "Slack",       Icon: SiSlack,    color: "#4A154B" },
+  { id: "x",        label: "X / Twitter", Icon: SiX,        color: "#0d0d0f" },
 ];
 
 // ---------------------------------------------------------------------------
 // Overview stats — reported model (or the 0G Private Computer label) + real invite earnings
 // ---------------------------------------------------------------------------
 
-function OverviewStats({ agentId }: { agentId: string }) {
+function OverviewStats({ agentId, modelLabel }: { agentId: string; modelLabel: string }) {
   const [priceOg, setPriceOg] = useState<string | null>(null);
-  const [modelLabel, setModelLabel] = useState(() => profileModelLabel(null));
   const [displayed, setDisplayed] = useState("0.000000");
   const accRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-
-    // One request when the profile opens (never per sidebar row): the model the backend reports, if any.
-    bf.getAgentConfig(agentId).then((cfg) => { if (!cancelled) setModelLabel(profileModelLabel(cfg.model)); }).catch(() => {});
 
     bf.getAgentEarnings(agentId).catch(() => ({ totalEarnedOg: "0", priceOg: "0" })).then((earnings) => {
       if (cancelled) return;
@@ -832,14 +842,14 @@ function OverviewStats({ agentId }: { agentId: string }) {
   );
 }
 
-function AdaptersSection() {
+function AdaptersSection({ reported }: { reported: ReportedConnections | null | undefined }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-wide mb-2 font-semibold" style={{ color: "var(--bf-gray)" }}>
         Connections
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {ADAPTERS.map(a => (
+        {ADAPTERS.map((x) => { const state = connectionState(x.id, reported); return { ...x, state, active: state === "active" }; }).map(a => (
           <div
             key={a.id}
             className="rounded-lg p-2.5 flex items-center gap-2.5"
@@ -856,7 +866,7 @@ function AdaptersSection() {
                 className="text-xs leading-tight mt-0.5"
                 style={{ color: a.active ? "#1f6b55" : "var(--bf-gray)" }}
               >
-                {a.active ? "● Active" : "Coming soon"}
+                {CONNECTION_LABEL[a.state]}
               </p>
             </div>
           </div>

@@ -86,7 +86,11 @@ export async function handleCommand(cmd: string, args: string, chatId: string, o
 export class TelegramAdapter implements ChannelAdapter {
   id = 'telegram';
   private bot?: Bot;
+  private live = false;
   constructor(private cfg: AgentConfig, private ops?: TelegramOps) {}
+
+  /** True only while the bot is actually connected (started and not stopped or crashed). */
+  get running(): boolean { return this.live; }
 
   async start(onMessage: (m: InboundMessage) => Promise<void>) {
     const tg = this.cfg.channels.telegram;
@@ -129,8 +133,10 @@ export class TelegramAdapter implements ChannelAdapter {
       });
     });
 
-    bot.start({ onStart: (info) => { botUsername = info.username; log.info({ username: info.username }, 'telegram bot started'); } });
+    bot.start({ onStart: (info) => { this.live = true; botUsername = info.username; log.info({ username: info.username }, 'telegram bot started'); } })
+      .then(() => { this.live = false; })
+      .catch((e) => { this.live = false; log.error({ err: String(e?.message ?? e).slice(0, 200) }, 'telegram bot stopped with an error'); });
   }
 
-  async stop() { await this.bot?.stop(); }
+  async stop() { this.live = false; await this.bot?.stop(); }
 }

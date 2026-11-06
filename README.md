@@ -23,7 +23,7 @@
 3. **`@study-note-reader`** calls the `read_notes` tool, which sends the photo to a 0G vision model and returns a faithful markdown transcription plus the key concepts. It ends with `@study-tutor`.
 4. **`@study-tutor`** looks up related passages in your earlier notes (`recall_notes`, see *Study memory* below), explains the two or three hardest ideas (linking and citing a past passage when it is relevant), writes six flashcards that test understanding, logs them with the `study_log` tool (that counts toward today's streak) and ends with `@study-examiner`. **The flashcards are attached to the Tutor's reply by code**, not by asking the model: when `study_log` succeeds, the runtime adds a `**Flashcards**` list (`1. Q: … — A: …`) after the answer and before the `@study-examiner` line, with the `⟦0g:…⟧` marker still last. Card text can't smuggle in an @-mention or a marker, the list is capped, and it's skipped if the reply already lists the cards ([agent/src/study/flashcards.ts](agent/src/study/flashcards.ts)).
 5. **`@study-examiner`** gets the Tutor's reply, cards included, and asks one question built on one of them (with no cards, it asks a question from the notes without remarking on it). The composer is pre-filled with `@study-examiner`, so you just type your answer; it grades it (correct / partly / wrong, with a reason) and asks the next one.
-6. The status bar shows `⚡ N calls · T tokens today` and `🔥 S-day streak · C cards today`.
+6. The status bar shows `⚡ N calls · T tokens today` and `🔥 S-day streak · C cards today`, both for you only: the agent answers `/usage` and `/study/index` for the signed-in student's study token (UTC day; the call counter is in memory, so it restarts from 0 when the agent restarts).
 
 ### Why you come back tomorrow
 
@@ -134,8 +134,8 @@ With `dev:no-docker` the database is in memory: re-run the seed after restarting
 ### Tests
 
 ```bash
-cd agent   && pnpm typecheck && pnpm test             # 256 tests
-cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 251 tests (in-process Mongo, mocked 0G Storage)
+cd agent   && pnpm typecheck && pnpm test             # 261 tests
+cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 255 tests (in-process Mongo, mocked 0G Storage)
 cd app     && npx tsc --noEmit && npx vitest run && npm run lint
 bash scripts/verify-inft-integration.sh                # everything, incl. contracts
 ```

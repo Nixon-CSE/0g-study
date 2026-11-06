@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { verifyHs256, takeUploadSlot, resetUploadCounts } from '../src/study/auth.js';
 import { studyRoutes } from '../src/api/routes/study.js';
+import { makeTracedFetch, resetRouterTrace } from '../src/providers/zerog-router.js';
+import { runWithContext } from '../src/runtime/request-context.js';
 
 const SECRET = 'x'.repeat(40);
 const enc = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -97,5 +99,41 @@ describe('study routes auth (NFR1)', () => {
     const app = studyRoutes(dir);
     expect((await app.request('/usage')).status).toBe(200);
     expect((await app.request('/study/index?user=bob')).status).toBe(200);
+  });
+});
+
+describe('GET /usage is per student (P3)', () => {
+  const routerCall = (student: string | undefined, tokens: number, id: string) => {
+    const f = makeTracedFetch(async () => new Response(JSON.stringify({ usage: { total_tokens: tokens } }), { headers: { 'content-type': 'application/json', 'x-request-id': id } }));
+    return runWithContext({ studentId: student, calls: [] }, () => f('https://router/v1/chat/completions'));
+  };
+  let dir: string;
+  beforeEach(async () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'usage-'));
+    resetRouterTrace();
+    await routerCall('alice', 100, 'req-alice-1');
+    await routerCall('alice', 50, 'req-alice-2');
+    await routerCall('bob', 7, 'req-bob-1');
+    await routerCall(undefined, 1000, 'req-anon-1');
+  });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); delete process.env.STUDY_JWT_SECRET; resetRouterTrace(); });
+
+  it("with study tokens, A's calls never appear in B's /usage", async () => {
+    process.env.STUDY_JWT_SECRET = SECRET;
+    const app = studyRoutes(dir);
+    const get = async (sub: string, q = '') => (await app.request(`/usage${q}`, { headers: { authorization: `Bearer ${sign({ sub, exp: now + 60 })}` } })).json();
+    const a = await get('alice');
+    expect(a).toMatchObject({ calls: 2, tokens: 150, lastRequestIds: ['req-alice-1', 'req-alice-2'] });
+    const b = await get('bob');
+    expect(b).toMatchObject({ calls: 1, tokens: 7, lastRequestIds: ['req-bob-1'] });
+    expect(JSON.stringify(b)).not.toContain('alice');
+    expect(await get('carol')).toMatchObject({ calls: 0, tokens: 0, lastRequestIds: [] });
+    // ?user= cannot widen it.
+    expect(await get('bob', '?user=alice')).toMatchObject({ calls: 1, tokens: 7 });
+  });
+
+  it('open dev mode (no secret) keeps the process-wide numbers', async () => {
+    const r = await (await studyRoutes(dir).request('/usage')).json();
+    expect(r).toMatchObject({ calls: 4, tokens: 1157 });
   });
 });

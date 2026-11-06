@@ -21,7 +21,12 @@ export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBala
   app.use('/uploads', studyAuth);
   app.use('/study/*', studyAuth);
 
-  app.get('/usage', (c) => c.json(usageToday()));
+  // A signed-in student sees only their own calls and tokens. Open dev mode (no STUDY_JWT_SECRET, no
+  // verified user) keeps the process-wide numbers.
+  app.get('/usage', (c) => {
+    const user = c.get('studyUser');
+    return c.json(user ? usageToday(user) : usageToday());
+  });
 
   app.post('/uploads', async (c) => {
     const user = c.get('studyUser') ?? 'anonymous';
