@@ -6,7 +6,7 @@ import Link from "next/link";
 const WHAT_BREAKS =
   "Remove 0G and the pod stops: the Note Reader can't read the photo, and the Tutor and Examiner have no inference.";
 
-const trust = ["0G request ID on every reply", "Daily study streak", "ERC-7857 INFT agents"];
+const trust = ["0G request ID on every reply", "Daily study streak", "ERC-7857-style INFT agents"];
 
 const problems = [
   "Re-reading your notes is not studying.",
@@ -27,12 +27,12 @@ const features = [
   { title: "Flashcards that stick", desc: "The Tutor writes six cards that test understanding, not wording, and logs them." },
   { title: "Daily streak", desc: "Study a little each day. Your streak and card count live in the status bar." },
   { title: "Proof on every reply", desc: "Each reply carries the 0G request ID that produced it. Copy it and match it in the 0G dashboard." },
-  { title: "Own your agents", desc: "Agents are ERC-7857-style INFTs on 0G Chain. Mint your own, or pick new ones from the marketplace." },
+  { title: "Own your agents", desc: "Agents can be minted as ERC-7857-style INFTs on 0G Chain. Mint your own, or pick new ones from the marketplace." },
 ];
 
 const stack = [
   { name: "Private Computer", desc: "Chat and vision inference through an OpenAI-compatible router, with a request ID per call." },
-  { name: "0G Chain", desc: "ERC-7857 INFT agents on the Galileo testnet." },
+  { name: "0G Chain", desc: "ERC-7857-style INFT agents on the Galileo testnet." },
   { name: "0G Storage", desc: "Encrypted agent metadata and skills for marketplace agents." },
 ];
 
@@ -139,7 +139,7 @@ export default function LandingPage() {
               A study group that never sleeps.
             </h2>
             <p className="mt-4 text-[14px]">
-              It runs inside 0G Study, and every hand-off is visible. Inference runs on 0G Private Computer, and agent
+              It runs inside 0G Study, and every hand-off is visible. Inference runs on 0G Private Computer, and minted agents'
               ownership lives on 0G Chain.
             </p>
           </div>

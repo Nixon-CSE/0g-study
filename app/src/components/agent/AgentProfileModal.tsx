@@ -90,13 +90,13 @@ export default function AgentProfileModal({ agent, onClose }: Props) {
 
           {agent.teeHash && (
             <div className="rounded-lg p-3 text-sm" style={{ background: "var(--bf-quaternary)" }}>
-              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--bf-gray)" }}>TEE Attestation</p>
+              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--bf-gray)" }}>Reply hash (demo)</p>
               <div className="flex items-center gap-2">
                 <code className="text-xs flex-1 truncate" style={{ color: "var(--bf-accent)" }}>{agent.teeHash}</code>
                 <button
                   className="flex items-center gap-1 text-xs px-2 py-1 rounded font-semibold text-[var(--on-ink)] flex-shrink-0"
                   style={{ background: "var(--bf-accent)" }}
-                  onClick={() => alert(`TEE Attestation:\n${agent.teeHash}\n\nVerified on 0G Compute Network`)}
+                  onClick={() => alert(`Reply hash:\n${agent.teeHash}\n\nA demo hash computed by the backend — not a hardware attestation.`)}
                 >
                   <ShieldCheck size={12} strokeWidth={2} />
                   Verify
@@ -739,7 +739,7 @@ function InftVisualiser({ agent }: { agent: Agent }) {
           <ul className="flex flex-col gap-1 list-disc list-inside">
             <li>The <span style={{ color: "var(--bf-accent)" }}>Public Manifest</span> populates the marketplace listing — name, bio, tags, and model info.</li>
             <li>The <span style={{ color: "var(--bf-symbol)" }}>Encrypted Bundle</span> is decrypted by the platform executor at inference time to restore the agent&apos;s soul and config.</li>
-            <li>The <span style={{ color: "var(--bf-yellow)" }}>Sealed DEK</span> ensures only the authorised executor can decrypt the bundle — enforced by ECIES + TEE.</li>
+            <li>The <span style={{ color: "var(--bf-yellow)" }}>Sealed DEK</span> ensures only the authorised executor can decrypt the bundle — enforced by ECIES.</li>
             <li>The <span style={{ color: "var(--bf-fire)" }}>bundle hash</span> is written on-chain at mint and verified on every bundle load — tamper-proof.</li>
           </ul>
         </div>

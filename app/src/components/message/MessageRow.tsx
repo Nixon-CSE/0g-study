@@ -218,7 +218,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
               style={{ color: "var(--bf-accent)", background: "rgba(129,22,224,0.12)" }}
             >
               <ShieldCheck size={12} strokeWidth={2} />
-              TEE Verified
+              Demo hash
             </button>
           )}
         </div>
@@ -233,11 +233,11 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
           <div className="mt-2 rounded-lg p-2.5 text-xs font-mono" style={{ background: "var(--bf-quaternary)", color: "var(--bf-gray)" }}>
             <p className="font-semibold text-[var(--on-ink)] mb-1 flex items-center gap-1.5">
               <ShieldAlert size={13} strokeWidth={2} style={{ color: "var(--bf-accent)" }} />
-              TEE Attestation Report
+              Private-channel reply hash
             </p>
             <p>Hash: <span style={{ color: "var(--bf-accent)" }}>{msg.teeHash}</span></p>
-            <p>Provider: 0G Compute Network</p>
-            <p>Status: <span style={{ color: "var(--bf-accent)" }}>Verified</span></p>
+            <p>Computed by: the BonFire backend (demo)</p>
+            <p>Status: <span style={{ color: "var(--bf-accent)" }}>Not a hardware attestation</span></p>
           </div>
         )}
       </div>

@@ -356,7 +356,7 @@ export default function PitchPage() {
                 </div>
                 <div className="mt-2 text-xl font-semibold text-[var(--foreground)]">Private Computer</div>
                 <div className="mt-2 text-sm text-[var(--subtle)]">
-                  TEE-verified inference through an OpenAI-compatible router, with a copyable request ID on every reply.
+                  Inference through an OpenAI-compatible router on compute 0G describes as TEE-verified, with a copyable request ID on every reply.
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {["chat", "vision", "request ID", "OpenAI-compat"].map((t) => (
@@ -608,13 +608,13 @@ export default function PitchPage() {
                 {
                   n: "01",
                   title: "0G Private Computer",
-                  detail: "One OpenAI-compatible API for chat and vision on TEE-verified compute.",
+                  detail: "One OpenAI-compatible API for chat and vision; 0G describes it as TEE-verified compute.",
                   hl: "Request ID on every call",
                 },
                 {
                   n: "02",
-                  title: "ERC-7857 INFTs",
-                  detail: "Real standard for ownable, encrypted-metadata agents.",
+                  title: "ERC-7857-style INFTs",
+                  detail: "An ERC-721 with ERC-7857-style encrypted metadata, for ownable agents.",
                   hl: "Encrypted, ownable agents",
                 },
                 {

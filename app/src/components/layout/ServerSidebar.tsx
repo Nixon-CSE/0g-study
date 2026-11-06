@@ -348,7 +348,7 @@ export default function ServerSidebar() {
                   </span>
                 </div>
                 <p className="text-xs mt-0.5" style={{ color: "var(--bf-gray)" }}>
-                  Skips the server&apos;s shared knowledge base. Each reply is enclave-attested with a unique hash.
+                  Skips the server&apos;s shared knowledge base. Each reply is stamped with a unique hash computed by the backend (a demo, not a hardware attestation).
                 </p>
               </div>
               <div
@@ -430,7 +430,7 @@ function ChannelRow({ name, type, active, onClick, tee }: { name: string; type: 
       <span className="truncate flex-1">{name}</span>
       {tee && (
         <span
-          title="TEE-attested (private) channel"
+          title="Private channel: no shared knowledge base; replies carry a demo hash (not a hardware attestation)"
           className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0"
           style={{
             background: active ? "var(--bf-fire)" : "rgba(255,140,40,0.18)",
@@ -542,7 +542,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         <div className="px-3 pb-3 pt-0 flex items-center gap-2" style={{ borderTop: "1px solid var(--bf-quinary)" }}>
           <ShieldCheck size={13} strokeWidth={2} style={{ color: "var(--bf-accent)", flexShrink: 0 }} />
           <code className="text-xs flex-1 truncate" style={{ color: "var(--bf-accent)" }}>{entry.teeHash}</code>
-          <span className="text-xs font-semibold" style={{ color: "var(--bf-accent)" }}>TEE Verified</span>
+          <span className="text-xs font-semibold" style={{ color: "var(--bf-accent)" }}>Demo hash</span>
         </div>
       )}
     </div>

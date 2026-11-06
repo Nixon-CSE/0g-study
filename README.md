@@ -151,7 +151,7 @@ bash scripts/verify-inft-integration.sh                # everything, incl. contr
 - **Notes photos are temporary.** They are stored under the agent directory and deleted after 24 hours (checked at boot and hourly).
 - **Failures are honest.** If 0G is unreachable or a call fails, the agent says so in one line; the Note Reader never guesses at unreadable notes.
 - **What the request ID proves:** that this reply was produced by calls through *your* 0G Private Computer account, which you can match in the pc.0g.ai dashboard. 0G describes Private Computer as TEE-verified compute; **this app does not itself fetch or verify enclave attestations.**
-- **The "TEE Verified" button** on messages in TEE-flagged channels shows a hash computed by the backend for demo purposes ([backend/src/channels/service.ts](backend/src/channels/service.ts)). It is not a hardware attestation.
+- **The "Demo hash" button** on messages in private (TEE-flagged) channels shows a hash computed by the backend for demo purposes ([backend/src/channels/service.ts](backend/src/channels/service.ts)). It is not a hardware attestation.
 
 ## Known limitations
 

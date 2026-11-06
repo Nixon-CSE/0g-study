@@ -630,7 +630,7 @@ function EmptyState({
           </p>
         )}
         <p className="text-xs" style={{ color: 'var(--bf-symbol)' }}>
-          Agents are INFTs with on-chain provenance via 0G Storage
+          Minted agents are INFTs on 0G Chain, with encrypted bundles on 0G Storage
         </p>
       </div>
     </div>

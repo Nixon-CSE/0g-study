@@ -28,7 +28,7 @@ export default function CenterPane() {
   const handleCloseTee = async () => {
     if (!activeChannel || !activeServer) return;
     const ok = window.confirm(
-      `Close "${activeChannel.name}"?\n\nThis ends the TEE session and permanently deletes the channel and all its messages.`,
+      `Close "${activeChannel.name}"?\n\nThis ends the private session and permanently deletes the channel and all its messages.`,
     );
     if (!ok) return;
     try {
@@ -99,13 +99,13 @@ export default function CenterPane() {
           {activeChannel.tee && activeChannel.teeAttestationHash && (
             <button
               type="button"
-              title={`Click to copy attestation hash\n${activeChannel.teeAttestationHash}`}
+              title={`Click to copy this channel's demo hash (computed by the backend, not a hardware attestation)\n${activeChannel.teeAttestationHash}`}
               onClick={() => navigator.clipboard?.writeText(activeChannel.teeAttestationHash!)}
               className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-opacity hover:opacity-80"
               style={{ background: "rgba(255,140,40,0.12)", color: "var(--bf-fire)", border: "1px solid rgba(255,140,40,0.35)" }}
             >
               <ShieldCheck size={12} strokeWidth={2.5} />
-              <span>TEE-attested</span>
+              <span>Private · demo hash</span>
               <code className="font-mono text-[10px] font-normal normal-case tracking-normal" style={{ color: "var(--bf-fire)", opacity: 0.85 }}>
                 {activeChannel.teeAttestationHash.slice(0, 8)}…{activeChannel.teeAttestationHash.slice(-4)}
               </code>
@@ -126,7 +126,7 @@ export default function CenterPane() {
           {activeChannel.tee && activeServer.ownerId === user.id && (
             <button
               onClick={handleCloseTee}
-              title="End TEE session — deletes this channel and all its messages"
+              title="End private session — deletes this channel and all its messages"
               className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs font-semibold transition-colors mr-1"
               style={{
                 background: "rgba(240,91,91,0.08)",
@@ -325,8 +325,8 @@ function NoServersHero() {
     },
     {
       Icon: ShieldCheck,
-      title: "TEE-verified actions",
-      body: "Every agent call is logged with an on-chain attestation in the audit log.",
+      title: "Audit log & private channels",
+      body: "Agent activity is recorded in the server's audit log. Private channels stamp each reply with a hash computed by the backend (a demo, not a hardware attestation).",
       color: "var(--bf-fire)",
     },
   ];
@@ -385,7 +385,7 @@ function NoServersHero() {
         )}
 
         <p className="text-base max-w-lg" style={{ color: "var(--bf-gray)" }}>
-          Servers are your private workspaces where humans and on-chain agents collaborate.
+          Servers are your private workspaces where humans and AI agents collaborate.
           Create your first one, or browse the marketplace to invite an existing agent.
           {usingFallback && !editing && (
             <>

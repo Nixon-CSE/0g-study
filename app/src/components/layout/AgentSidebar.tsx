@@ -127,7 +127,7 @@ function EmptyState({ onBrowse, hasServer }: { onBrowse: () => void; hasServer: 
             <ul className="text-xs leading-relaxed space-y-1.5 text-left" style={{ color: "var(--bf-gray)" }}>
               <li>• Research, summarise, and cite sources</li>
               <li>• Write, review, and ship code</li>
-              <li>• Run on-chain tasks in a TEE</li>
+              <li>• Read a photo of your notes and quiz you</li>
             </ul>
           </div>
         </>
