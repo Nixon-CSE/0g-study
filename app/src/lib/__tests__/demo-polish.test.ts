@@ -43,3 +43,31 @@ describe("status bar stays on one line", () => {
     expect(bar).not.toMatch(/className="[^"]*overflow-hidden/);
   });
 });
+
+describe("PWA", () => {
+  const manifest = JSON.parse(fs.readFileSync(fileURLToPath(new URL("../../../public/site.webmanifest", import.meta.url)), "utf8"));
+  it("is a complete manifest with a maskable icon", () => {
+    expect(manifest).toMatchObject({ name: "0G Study", short_name: "0G Study", start_url: "/workspace", display: "standalone", theme_color: "#e9e9e6", background_color: "#e9e9e6" });
+    expect(manifest.icons.map((i: { sizes: string; purpose: string }) => `${i.sizes} ${i.purpose}`)).toEqual(["192x192 any", "512x512 any", "512x512 maskable"]);
+    for (const i of manifest.icons) expect(fs.existsSync(fileURLToPath(new URL(`../../../public${i.src}`, import.meta.url))), i.src).toBe(true);
+  });
+  it("nothing can cache API calls: there is no service worker", () => {
+    expect(fs.existsSync(fileURLToPath(new URL("../../../public/sw.js", import.meta.url)))).toBe(false);
+    expect(read("app/layout.tsx")).not.toContain("serviceWorker");
+  });
+});
+
+describe("phones", () => {
+  it("a phone gets the camera and the library; the shell has drawers and honours the notch", () => {
+    const composer = read("components/message/MessageComposer.tsx");
+    expect(composer).toContain('capture="environment"');
+    expect(composer).toContain("Take photo");
+    expect(composer).toContain("Choose from library");
+    expect(read("app/layout.tsx")).toContain('viewportFit: "cover"');
+    expect(read("app/globals.css")).toContain("100dvh");
+    expect(read("components/layout/AppShell.tsx")).toContain("--keyboard-inset");
+  });
+  it("modals are portalled, so a drawer's transform can't trap them", () => {
+    expect(read("components/shared/Modal.tsx")).toContain("createPortal(");
+  });
+});

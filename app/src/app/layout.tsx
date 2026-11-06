@@ -27,6 +27,7 @@ export const metadata: Metadata = {
     "INFT",
   ],
   manifest: "/site.webmanifest",
+  appleWebApp: { capable: true, title: "0G Study", statusBarStyle: "default" },
   icons: {
     icon: [
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
@@ -60,6 +61,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#e9e9e6",
+  width: "device-width",
+  initialScale: 1,
+  // Lets the page use the area around the notch; insets are handled with env(safe-area-inset-*).
+  viewportFit: "cover",
+  // Android: the keyboard resizes the page, so the composer stays above it.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
