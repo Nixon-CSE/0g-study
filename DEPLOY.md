@@ -25,7 +25,7 @@ Create a database and note the connection string (`MONGODB_URI`) and name (`MONG
 |---|---|
 | `ZEROG_API_KEY` | shared `sk-` key from pc.0g.ai (fund the deposit) |
 | `ZEROG_LLM_MODEL` | `deepseek-v4.1-flash` (re-check with `node scripts/smoke-router.mjs`) |
-| `ZEROG_VISION_MODEL` | `gemini-2.5-flash-lite` (what the demo runs; code default `qwen2.5-vl-72b-instruct`) |
+| `ZEROG_VISION_MODEL` | `gemini-2.5-flash` (what the demo runs; on 2026-11-06 `gemini-2.5-flash-lite` and the code default `qwen2.5-vl-72b-instruct` returned 401 `TOKEN_NOT_VALID` from 0G's upstream provider — re-check with `node scripts/smoke-router.mjs`) |
 | `ZEROG_EMBED_MODEL` | `qwen3-embedding-0.6b` (study memory / knowledge-base RAG; check with `node scripts/smoke-embeddings.mjs`) |
 | `STUDY_JWT_SECRET` | **same value as the backend's `JWT_SECRET`** — without it the study endpoints are open |
 | `STUDY_ALLOWED_ORIGINS` | the app's URL, e.g. `https://0g-study.vercel.app` |

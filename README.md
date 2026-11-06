@@ -69,7 +69,7 @@ Code: [agent/src/rag/](agent/src/rag/) (`chunk`, `embed`, `store`, `search`, `no
 | Use | Default | Checked |
 |---|---|---|
 | Chat + tool calls (`ZEROG_LLM_MODEL`) | `deepseek-v4.1-flash` | chat, tool calling, `chat_template_kwargs` |
-| Vision (`ZEROG_VISION_MODEL`) | code default `qwen2.5-vl-72b-instruct`; the local demo's `agent/.env` runs **`gemini-2.5-flash-lite`** | faithful transcription of a printed notes photo sent as a data URL |
+| Vision (`ZEROG_VISION_MODEL`) | code default `qwen2.5-vl-72b-instruct`; the local demo's `agent/.env` runs **`gemini-2.5-flash`** (on 2026-11-06 `gemini-2.5-flash-lite` and `qwen2.5-vl-72b-instruct` returned 401 from 0G's upstream provider) | faithful transcription of a printed notes photo sent as a data URL |
 | Embeddings (`ZEROG_EMBED_MODEL`) | `qwen3-embedding-0.6b` | 1024-dim, batching, 32k-token context, request ID in `x-request-id` (`scripts/smoke-embeddings.mjs`) |
 
 Model availability changes; list current models with `node agent/scripts/smoke-router.mjs` (or `GET /v1/models`). Router models "think" by default, which burns `max_tokens`; the provider turns thinking off for open-weight families (qwen, deepseek, glm, kimi, mimo) and leaves other models untouched because they reject the extra field.
