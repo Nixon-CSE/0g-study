@@ -3,7 +3,7 @@ import { buildSystemPrompt } from './prompt-builder.js';
 import { createChatModel } from './llm-client.js';
 import { callsTodayFor } from '../providers/zerog-router.js';
 import { runWithContext, type RequestContext } from './request-context.js';
-import { loadUserKeys } from '../study/zerog-account.js';
+import { loadUserKeys, ownCreditsOutLine } from '../study/zerog-account.js';
 import { hashEnv } from './env-hash.js';
 import type { LoadedAgent } from '../config/loader.js';
 import type { SkillRecord } from '../skills/loader.js';
@@ -36,11 +36,14 @@ export function formatRequestIdMarker(calls: (string | null | { requestId: strin
  * NFR2: one plain line when no reply could be produced. Network failures and HTTP errors from the
  * model provider say so explicitly, so the student knows it is the inference service, not their notes.
  */
-export function failureLine(err: unknown): string {
+export function failureLine(err: unknown, opts: { ownKey?: boolean; now?: Date } = {}): string {
   if (err == null) return "_(I couldn't form a reply this turn.)_";
   const e = err as { message?: unknown; statusCode?: unknown; cause?: { code?: unknown } };
   const text = `${String(e?.message ?? err)} ${String(e?.cause?.code ?? '')}`;
   const status = typeof e?.statusCode === 'number' ? e.statusCode : undefined;
+  // A student's own key: their credits, their key. Never retried on the shared key behind their back.
+  if (opts.ownKey && status === 402) return ownCreditsOutLine(opts.now);
+  if (opts.ownKey && (status === 401 || status === 403)) return '_(0G rejected your connected API key. It may have been revoked: press disconnect in the status bar, then connect a new key or use the free tier.)_';
   if (status === 401 || status === 403) return '_(0G Private Computer rejected the request (API key). Please tell the app owner.)_';
   if (status === 402) return '_(The 0G balance paying for this is empty. Top it up at pc.0g.ai → Deposit, then try again.)_';
   if (status === 429) return '_(0G Private Computer is rate-limiting right now. Please try again in a minute.)_';
@@ -260,7 +263,7 @@ export class AgentRuntime {
     }
 
     if (!final) {
-      final = failureLine(failure);
+      final = failureLine(failure, { ownKey: !!reqCtx.zerogApiKey });
     } else {
       // Cards saved by study_log go into the reply text (before the hand-off line), by code.
       final = attachFlashcards(final, reqCtx.flashcards);

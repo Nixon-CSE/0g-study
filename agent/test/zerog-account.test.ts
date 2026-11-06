@@ -66,7 +66,7 @@ describe('balance', () => {
       auth = new Headers(init.headers).get('authorization')!;
       return new Response(JSON.stringify({ total_balance: '1500000000000000000' }), { headers: { 'content-type': 'application/json' } });
     }) as any;
-    expect(await fetchBalance('mk-abc12345678', f)).toEqual({ ok: true, balance0G: 1.5 });
+    expect(await fetchBalance('mk-abc12345678', f)).toEqual({ ok: true, balance0G: 1.5, address: null });
     expect(auth).toBe('Bearer mk-abc12345678');
   });
   it('surfaces 403 insufficient_scope', async () => {
@@ -94,11 +94,12 @@ describe('withUserKey', () => {
 });
 
 describe('/study/account routes', () => {
-  const okBalance = async () => ({ ok: true as const, balance0G: 3.25 });
+  const okBalance = async () => ({ ok: true as const, balance0G: 3.25, address: null });
+  const listKeys = async () => ({ ok: true as const, keys: [{ preview: 'sk-user…', revoked: false, expiresAt: null }] });
   const auth = { authorization: `Bearer ${token('alice')}`, 'content-type': 'application/json' };
 
   it('connects, reports the balance, never returns the keys, and disconnects', async () => {
-    const app = studyRoutes(dir, { balance: okBalance });
+    const app = studyRoutes(dir, { balance: okBalance, listKeys });
     expect(await (await app.request('/study/account', { headers: auth })).json()).toEqual({ enabled: true, connected: false });
     const post = await app.request('/study/account', { method: 'POST', headers: auth, body: JSON.stringify(KEYS) });
     expect(post.status).toBe(200);

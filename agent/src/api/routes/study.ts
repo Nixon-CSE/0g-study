@@ -5,7 +5,7 @@ import { recallNotes } from '../../rag/notes.js';
 import { isSafeId, studyStats } from '../../study/store.js';
 import { checkUpload, saveUpload } from '../../study/uploads.js';
 import { studyAuth, takeUploadSlot } from '../../study/auth.js';
-import { accountsEnabled, deleteUserKeys, fetchBalance, loadUserKeys, saveUserKeys, validKeys } from '../../study/zerog-account.js';
+import { accountsEnabled, deleteUserKeys, fetchApiKeys, fetchBalance, keyFormatError, loadUserKeys, saveUserKeys, verifyUserKeys, type UserKeys } from '../../study/zerog-account.js';
 
 /**
  * GET /usage (today's 0G usage) · POST /uploads (notes photo) · GET /study/index (streak + cards)
@@ -14,7 +14,7 @@ import { accountsEnabled, deleteUserKeys, fetchBalance, loadUserKeys, saveUserKe
  * All sit behind studyAuth (NFR1): with STUDY_JWT_SECRET set they require the BonFire study token and
  * always answer for the token's user; without it (local dev) `?user=` is used and /study/account is off.
  */
-export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBalance } = {}) {
+export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBalance; listKeys?: typeof fetchApiKeys } = {}) {
   const balanceOf = deps.balance ?? fetchBalance;
   const app = new Hono<{ Variables: { studyUser?: string } }>();
   app.use('/usage', studyAuth);
@@ -92,14 +92,14 @@ export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBala
     const user = accountUser(c);
     if (!user) return c.json({ error: 'connecting a 0G account is not enabled on this server' }, 403);
     const body = await c.req.json().catch(() => null);
-    if (!validKeys(body)) return c.json({ error: 'need apiKey (sk-…) and managementKey (mk-… with account:read)' }, 400);
-    const b = await balanceOf(body.managementKey);
-    if (!b.ok) {
-      const hint = b.status === 401 || b.status === 403 ? ' — check the management key has the account:read scope' : '';
-      return c.json({ error: `could not read your 0G balance: ${b.error}${hint}` }, 400);
-    }
-    await saveUserKeys(agentDir, user, { apiKey: body.apiKey, managementKey: body.managementKey });
-    return c.json({ connected: true, balance0G: b.balance0G });
+    const bad = keyFormatError(body);
+    if (bad) return c.json({ error: bad }, 400);
+    const keys: UserKeys = { apiKey: body.apiKey, managementKey: body.managementKey };
+    // Nothing is stored until both keys check out live.
+    const v = await verifyUserKeys(keys, { balance: balanceOf, listKeys: deps.listKeys });
+    if (!v.ok) return c.json({ error: v.error }, v.status as 400 | 502);
+    await saveUserKeys(agentDir, user, keys);
+    return c.json({ connected: true, balance0G: v.balance0G });
   });
 
   app.delete('/study/account', async (c) => {
