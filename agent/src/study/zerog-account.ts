@@ -23,6 +23,13 @@ export function accountsEnabled(): boolean {
   return process.env.ZEROG_USER_ACCOUNTS === 'on' && !!process.env.STUDY_JWT_SECRET;
 }
 
+/** Why students can't connect their own account right now, for the boot log; null when they can. */
+export function accountsOffReason(): string | null {
+  if (process.env.ZEROG_USER_ACCOUNTS !== 'on') return 'ZEROG_USER_ACCOUNTS is not "on"';
+  if (!process.env.STUDY_JWT_SECRET) return 'STUDY_JWT_SECRET is not set, so keys could not be bound to a verified student or encrypted';
+  return null;
+}
+
 export function validKeys(k: unknown): k is UserKeys {
   const o = k as Partial<UserKeys> | null;
   return !!o

@@ -20,6 +20,7 @@ import { TenantRegistry } from './tenants/registry.js';
 import { log } from './util/logger.js';
 import { purgeOldUploads } from './study/uploads.js';
 import { drainAllPending } from './rag/notes.js';
+import { accountsOffReason } from './study/zerog-account.js';
 import { studyAuthEnabled } from './study/auth.js';
 
 async function main() {
@@ -98,6 +99,9 @@ async function main() {
     notifySuggest: async (items) => { log.info({ items }, 'evolution suggestions'); bus.emit('event', { type: 'evolution.suggest', items }); },
     reload: reloadSkills,
   });
+
+  const accountsOff = accountsOffReason();
+  if (accountsOff) log.warn(`Connect your 0G account is off: ${accountsOff}`);
 
   // Notes photos are temporary: remove anything older than 24h now and hourly.
   // Study memory: notes whose indexing failed (0G embeddings down) are retried at boot and hourly.

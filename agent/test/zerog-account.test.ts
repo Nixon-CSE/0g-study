@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sealKeys, openKeys, validKeys, neuronTo0G, fetchBalance, saveUserKeys, loadUserKeys } from '../src/study/zerog-account.js';
+import { sealKeys, openKeys, validKeys, neuronTo0G, fetchBalance, saveUserKeys, loadUserKeys, accountsOffReason } from '../src/study/zerog-account.js';
 import { withUserKey } from '../src/providers/zerog-router.js';
 import { runWithContext } from '../src/runtime/request-context.js';
 import { studyRoutes } from '../src/api/routes/study.js';
@@ -124,5 +124,21 @@ describe('/study/account routes', () => {
     const app = studyRoutes(dir, { balance: okBalance });
     expect(await (await app.request('/study/account', { headers: auth })).json()).toEqual({ enabled: false, connected: false });
     expect((await app.request('/study/account', { method: 'POST', headers: auth, body: JSON.stringify(KEYS) })).status).toBe(403);
+  });
+});
+
+describe('enabled by default, off with a reason (P5-iAI step 1)', () => {
+  it('needs the flag and STUDY_JWT_SECRET; the boot log gets the reason', () => {
+    expect(accountsOffReason()).toBeNull();
+    delete process.env.STUDY_JWT_SECRET;
+    expect(accountsOffReason()).toMatch(/STUDY_JWT_SECRET is not set/);
+    process.env.STUDY_JWT_SECRET = SECRET;
+    process.env.ZEROG_USER_ACCOUNTS = 'off';
+    expect(accountsOffReason()).toMatch(/ZEROG_USER_ACCOUNTS/);
+  });
+  it('the example env files turn it on', () => {
+    const read = (f: string) => fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8');
+    expect(read('.env.example')).toMatch(/^ZEROG_USER_ACCOUNTS=on$/m);
+    expect(read('../app/.env.local.example')).toMatch(/^NEXT_PUBLIC_ZEROG_ACCOUNTS=on$/m);
   });
 });

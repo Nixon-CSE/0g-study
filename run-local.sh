@@ -39,6 +39,10 @@ if ! echo "$SMOKE" | grep -qE "vision=200"; then
   printf "\033[1;33m⚠ Vision model unavailable on 0G right now — app will start, but photo reading fails.\n  Pick another vision model from the 'models:' list above and set ZEROG_VISION_MODEL in agent/.env\033[0m\n"
 fi
 
+# Students can connect their own pc.0g.ai account by default; a value in the env files wins.
+grep -qE '^ZEROG_USER_ACCOUNTS=' agent/.env || export ZEROG_USER_ACCOUNTS=on
+grep -qE '^NEXT_PUBLIC_ZEROG_ACCOUNTS=' app/.env.local || export NEXT_PUBLIC_ZEROG_ACCOUNTS=on
+
 c "2/4  Starting agent runtime on :7777"
 (cd agent && nohup ./node_modules/.bin/tsx src/index.ts examples/default-agent >"$LOGS/agent.log" 2>&1 &)
 c "3/4  Starting backend on :8080 (in-memory MongoDB on :27018)"

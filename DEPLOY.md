@@ -30,7 +30,7 @@ Create a database and note the connection string (`MONGODB_URI`) and name (`MONG
 | `STUDY_JWT_SECRET` | **same value as the backend's `JWT_SECRET`** — without it the study endpoints are open |
 | `STUDY_ALLOWED_ORIGINS` | the app's URL, e.g. `https://0g-study.vercel.app` |
 | `STUDY_DAILY_CALL_CAP` / `STUDY_DAILY_UPLOAD_CAP` | `30` / `20` (defaults) |
-| `ZEROG_USER_ACCOUNTS` | `on` to enable "Connect 0G account" (FR9), else `off` |
+| `ZEROG_USER_ACCOUNTS` | `on` (default): students can spend their own pc.0g.ai credits. Needs `STUDY_JWT_SECRET`; without it the feature stays off and the boot log says why. `off` disables it |
 | `AGENT_ADMIN_TOKEN` | random, ≥ 32 chars; **same value as the backend's**. Guards the admin API (`/tenants`, `/config`, `/mcp`, `/rag`, …) and is the only way a `studentId` is accepted on `/chat/message` |
 
 ## 3. Backend (`backend/`)
@@ -69,7 +69,7 @@ cd backend && pnpm tsx scripts/seed-study-pod.mjs --owner <your-username-or-emai
 | `NEXT_PUBLIC_SITE_URL` | the app's own URL (social cards) |
 | `NEXT_PUBLIC_OG_CHAIN_ID` | `16602` |
 | `NEXT_PUBLIC_INFT_CONTRACT_ADDRESS` | `0x151819ebc4435937f704FbB726DE6f99Bda262Bb` |
-| `NEXT_PUBLIC_ZEROG_ACCOUNTS` | `on` to show "Connect 0G account" (match the agent) |
+| `NEXT_PUBLIC_ZEROG_ACCOUNTS` | `on` (default) to show "Use your daily iAI credits →" (match the agent) |
 | `NEXT_PUBLIC_AGENT_MODEL_LABEL` | optional; model label on agent cards (default `0G Private Computer`). Set it only to what the agent really runs (`ZEROG_LLM_MODEL`) |
 
 Never put `ZEROG_API_KEY` or any `sk-`/`mk-` key in a `NEXT_PUBLIC_*` variable.
