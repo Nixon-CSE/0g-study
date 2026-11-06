@@ -81,3 +81,5 @@ backend/voice-worker/__pycache__/
 backend/voice-worker/*.pyc
 backend/voice-worker/.pytest_cache/
 !app/public/*.png
+
+.logs/

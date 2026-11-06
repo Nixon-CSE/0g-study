@@ -25,7 +25,9 @@ async function main() {
   let stopMemoryMongo: (() => Promise<void>) | undefined;
   if (useDevMemoryMongo(env.DEV_MEMORY_MONGO)) {
     const { MongoMemoryServer } = await import('mongodb-memory-server');
-    const memoryServer = await MongoMemoryServer.create();
+    // Fixed port (DEV_MEMORY_MONGO_PORT) so scripts like seed-study-pod.mjs can reach the same DB.
+    const devPort = Number(process.env.DEV_MEMORY_MONGO_PORT) || undefined;
+    const memoryServer = await MongoMemoryServer.create(devPort ? { instance: { port: devPort } } : undefined);
     mongoUri = memoryServer.getUri();
     stopMemoryMongo = async () => {
       await memoryServer.stop();
