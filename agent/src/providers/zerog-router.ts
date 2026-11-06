@@ -34,6 +34,13 @@ export interface RouterCall {
    * otherwise); null when absent. Shown next to the request id on the 0G badge; never inferred.
    */
   e2ee?: string | null;
+  /** The model that answered, as the router reports it (else as requested); null if neither is usable. */
+  model?: string | null;
+}
+
+/** A model id safe to carry in the reply marker, or null. */
+export function modelValue(raw: unknown): string | null {
+  return typeof raw === 'string' && /^[A-Za-z0-9._:/-]{1,64}$/.test(raw) ? raw : null;
 }
 
 /** A short lowercase token, or null (anything else is dropped rather than echoed). */
@@ -127,10 +134,13 @@ export function makeTracedFetch(base: typeof fetch = fetch): typeof fetch {
     let requestId: string | null = null;
     for (const h of REQUEST_ID_HEADERS) { requestId = pickRequestId(res.headers.get(h)); if (requestId) break; }
     let tokens = 0;
+    let model: string | null = null;
+    try { if (typeof init?.body === 'string') model = modelValue(JSON.parse(init.body)?.model); } catch { /* not JSON */ }
     try {
       if ((res.headers.get('content-type') ?? '').includes('json')) {
         const j: any = await res.clone().json();
         tokens = Number(j?.usage?.total_tokens ?? 0) || 0;
+        model = modelValue(j?.model) ?? model;
         // 0G's own trace record names the request id; prefer it over the headers.
         const traced = j?.x_0g_trace?.request_id;
         if (typeof traced === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(traced)) requestId = traced;
@@ -147,6 +157,7 @@ export function makeTracedFetch(base: typeof fetch = fetch): typeof fetch {
       studentId: ctx?.studentId,
       at: new Date().toISOString(),
       e2ee: e2eeValue(res.headers.get('x-0g-e2ee')),
+      model,
     };
     ctx?.calls.push(call);
     pending.push(call);

@@ -189,7 +189,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
           {zgIds.length > 0 && (
             <button
               onClick={() => navigator.clipboard?.writeText(zgIds.join(",")).catch(() => {})}
-              title={requestIdTooltip(zgIds, parsed.e2ee)}
+              title={requestIdTooltip(zgIds, parsed.e2ee, parsed.models)}
               className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-mono"
               style={{ color: "var(--bf-accent)", background: "rgba(129,22,224,0.12)" }}
             >

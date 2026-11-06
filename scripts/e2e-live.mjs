@@ -249,8 +249,8 @@ await test('chat reply carries a 0G request-id proof marker', async () => {
   assert(/pong/i.test(reply), `unexpected reply: ${reply.slice(0, 200)}`);
   const m = reply.match(MARKER_RE);
   assert(m, `no ⟦0g:…⟧ marker at the end of the reply: ${JSON.stringify(reply.slice(-120))}`);
-  // Each entry is a request id, optionally with the router's x-0g-e2ee value (`id~none`, `id~sealed`).
-  assert(m[1].split(',').every((id) => /^[A-Za-z0-9-]{8,64}(~[a-z]{1,16})?$/.test(id)), `bad request ids: ${m[1]}`);
+  // Each entry is a request id, optionally with x-0g-e2ee and the model (`id~none~deepseek-v4.1-flash`).
+  assert(m[1].split(',').every((id) => /^[A-Za-z0-9-]{8,64}(~[a-z]{0,16}(~[A-Za-z0-9._:/-]{1,64})?)?$/.test(id)), `bad request ids: ${m[1]}`);
 }, { skip: off });
 await test("/usage counted the call for that student only (not for another student)", async () => {
   const r = await req(AGENT, '/usage', { headers: bearer(studyToken()) });
