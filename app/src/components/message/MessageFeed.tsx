@@ -27,7 +27,7 @@ export default function MessageFeed({ messages }: { messages: Message[] }) {
               Hey,{" "}
               <span
                 style={{
-                  color: usingFallback ? "var(--bf-gray)" : "white",
+                  color: usingFallback ? "var(--bf-gray)" : "var(--foreground)",
                   fontStyle: usingFallback ? "italic" : "normal",
                   marginRight: usingFallback ? "0.15em" : 0,
                 }}

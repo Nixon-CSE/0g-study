@@ -224,7 +224,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
         </div>
 
         {visibleContent && (
-          <p className="text-sm leading-relaxed mt-0.5" style={{ color: "#dde1e8" }}>{visibleContent}</p>
+          <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)" }}>{visibleContent}</p>
         )}
 
         {toolContent && <ToolCallThread content={toolContent} />}

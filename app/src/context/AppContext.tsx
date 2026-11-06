@@ -690,7 +690,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const { toasts, push: pushNotification, dismiss: dismissToast, requestPermission } = useAgentNotifications();
+  const { toasts, push: pushNotification, dismiss: dismissToast, requestPermission } =
+    useAgentNotifications(() => activeChannelIdRef.current);
 
   const sendMessage = useCallback(
     async (serverId: string, channelId: string, content: string) => {
@@ -725,13 +726,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const agentName = agent?.name ?? "Agent";
           const agentAvatar = agent?.avatar;
           const replyText = reply.content ?? "";
-          // Detect if the reply contains tool call markers (task execution)
+          // Tool-call markers mean the agent ran a task; the preview itself is cleaned by the hook.
           const isTask = replyText.includes("[tool:") || (replyText.includes("→") && replyText.includes("←"));
-          // Strip tool call lines for the preview — show only the visible text
-          const visibleText = isTask
-            ? replyText.split("\n").filter(l => !l.startsWith("[tool:") && !l.startsWith("→") && !l.startsWith("←")).join(" ").trim() || replyText
-            : replyText;
-          pushNotification({ agentName, agentAvatar, message: visibleText, isTask });
+          pushNotification({ agentName, agentAvatar, message: replyText, isTask, channelId: reply.channelId ?? channelId });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to send message");

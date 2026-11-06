@@ -229,7 +229,7 @@ export default function CenterPane() {
                 <>
                   <p className="text-xs uppercase tracking-wider px-2 mt-1 mb-0.5" style={{ color: "var(--bf-gray)", fontSize: 10 }}>Agents</p>
                   {activeServer.agents.map(a => (
-                    <div key={a.id} className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ color: "var(--on-ink)" }}>
+                    <div key={a.id} className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ color: "var(--foreground)" }}>
                       <Avatar name={a.name} size={28} src={a.avatar} color="var(--bf-fire)" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{a.name}</p>
@@ -348,7 +348,7 @@ function NoServersHero() {
                 if (e.key === "Escape") cancelEdit();
               }}
               placeholder="what should we call you?"
-              className="text-3xl font-bold bg-transparent border-b-2 outline-none text-[var(--on-ink)] placeholder:text-gray-600 min-w-0"
+              className="text-3xl font-bold bg-transparent border-b-2 outline-none text-[var(--foreground)] placeholder:text-[var(--subtle)] min-w-0"
               style={{ borderColor: "var(--bf-accent)", width: "auto", minWidth: 240 }}
             />
             <button
@@ -371,7 +371,7 @@ function NoServersHero() {
         ) : (
           <h1 className="flex items-center gap-3 text-3xl font-bold text-[var(--foreground)] mb-2">
             <span>
-              Hey, <span style={{ color: usingFallback ? "var(--bf-gray)" : "white", fontStyle: usingFallback ? "italic" : "normal", marginRight: usingFallback ? "0.15em" : 0 }}>{displayName}</span>!
+              Hey, <span style={{ color: usingFallback ? "var(--bf-gray)" : "var(--foreground)", fontStyle: usingFallback ? "italic" : "normal", marginRight: usingFallback ? "0.15em" : 0 }}>{displayName}</span>!
             </span>
             <button
               onClick={() => { setDraft(preferredName); setEditing(true); }}
@@ -392,7 +392,7 @@ function NoServersHero() {
               {" "}
               <button
                 onClick={() => { setDraft(""); setEditing(true); }}
-                className="underline hover:text-[var(--on-ink)] transition-colors"
+                className="underline hover:opacity-70 transition-opacity"
                 style={{ color: "var(--bf-accent)" }}
               >
                 Tell us what to call you →

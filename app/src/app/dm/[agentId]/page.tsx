@@ -236,7 +236,7 @@ export default function DmPage() {
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
               {session && <AgentAvatar session={session} size={64} />}
               <div>
-                <p className="text-[var(--on-ink)] font-bold text-lg">{session?.agentName}</p>
+                <p className="text-[var(--foreground)] font-bold text-lg">{session?.agentName}</p>
                 <p className="text-sm mt-1" style={{ color: "var(--bf-gray)" }}>
                   This is the beginning of your direct message history with{" "}
                   <span style={{ color: "var(--bf-accent)" }}>@{session?.agentSlug}</span>.
@@ -260,7 +260,7 @@ export default function DmPage() {
                   style={
                     msg.role === "user"
                       ? { background: "var(--bf-accent)", color: "var(--on-ink)", borderBottomRightRadius: 4 }
-                      : { background: "var(--bf-secondary)", color: "var(--on-ink)", borderBottomLeftRadius: 4 }
+                      : { background: "var(--bf-secondary)", color: "var(--foreground)", borderBottomLeftRadius: 4 }
                   }
                 >
                   {msg.content || (

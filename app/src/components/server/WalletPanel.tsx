@@ -129,7 +129,7 @@ export default function WalletPanel({ serverId }: Props) {
       {/* Balance */}
       <div
         className="text-lg font-bold"
-        style={{ color: lowBalance ? '#a8372f' : '#f2f3f5' }}
+        style={{ color: lowBalance ? 'var(--negative)' : 'var(--foreground)' }}
       >
         {bal !== null ? `${bal.toFixed(4)} OG` : '— OG'}
       </div>

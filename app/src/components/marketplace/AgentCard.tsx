@@ -44,7 +44,7 @@ export default function AgentCard({ agent, onInvite }: Props) {
       <button
         onClick={() => onInvite(agent)}
         className="mt-auto px-3 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-90"
-        style={{ background: 'var(--bf-fire)', color: 'var(--bf-white)' }}
+        style={{ background: 'var(--bf-fire)', color: 'var(--on-ink)' }}
       >
         Invite
       </button>

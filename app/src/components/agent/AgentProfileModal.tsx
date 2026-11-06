@@ -51,7 +51,7 @@ export default function AgentProfileModal({ agent, onClose }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[var(--on-ink)] text-xl font-bold">{agent.name}</span>
+            <span className="text-[var(--foreground)] text-xl font-bold">{agent.name}</span>
             <span className="text-xs px-1.5 py-0.5 rounded font-bold text-[var(--on-ink)] uppercase" style={{ background: "var(--bf-accent)", fontSize: 10 }}>BOT</span>
             <span className="text-xs font-medium capitalize" style={{ color: STATUS_COLOR[agent.status] }}>● {agent.status}</span>
           </div>
@@ -757,7 +757,7 @@ const ADAPTERS = [
   { id: "whatsapp", label: "WhatsApp",    Icon: SiWhatsapp, color: "#25D366", active: false },
   { id: "discord",  label: "Discord",     Icon: SiDiscord,  color: "#0d0d0f", active: false },
   { id: "slack",    label: "Slack",       Icon: SiSlack,    color: "#4A154B", active: false },
-  { id: "x",        label: "X / Twitter", Icon: SiX,        color: "#ffffff", active: false },
+  { id: "x",        label: "X / Twitter", Icon: SiX,        color: "#0d0d0f", active: false },
 ];
 
 // ---------------------------------------------------------------------------

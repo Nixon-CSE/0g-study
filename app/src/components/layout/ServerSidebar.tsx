@@ -230,7 +230,7 @@ export default function ServerSidebar() {
                   className="flex flex-col items-center justify-center gap-1 py-2 rounded-lg transition-colors"
                   style={{
                     background: "var(--bf-quinary)",
-                    color: danger ? "var(--bf-red)" : active ? "var(--on-ink)" : "var(--bf-gray)",
+                    color: danger ? "var(--bf-red)" : active ? "var(--foreground)" : "var(--bf-gray)",
                   }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "var(--bf-quinary)"; }}
@@ -339,7 +339,7 @@ export default function ServerSidebar() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-[var(--on-ink)]">Private channel</span>
+                  <span className="text-sm font-semibold text-[var(--foreground)]">Private channel</span>
                   <span
                     className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: "var(--bf-fire)", color: "var(--on-ink)", letterSpacing: "0.04em" }}
@@ -403,8 +403,8 @@ function VoiceChannelRow({ name, active, joined, joining, onClick }: {
   return (
     <button onClick={onClick}
       className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-left text-sm transition-colors"
-      style={{ background: active ? "var(--bf-quinary)" : "transparent", color: joined ? "var(--bf-accent)" : active ? "var(--on-ink)" : "var(--bf-senary)" }}
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+      style={{ background: active ? "var(--bf-quinary)" : "transparent", color: joined ? "var(--bf-accent)" : active ? "var(--foreground)" : "var(--bf-senary)" }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(19,19,21,0.05)"; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
       <Volume2 size={18} style={{ color: joined ? "var(--bf-accent)" : "var(--bf-symbol)", flexShrink: 0 }} />
       <span className="truncate flex-1">{name}</span>
@@ -420,7 +420,7 @@ function ChannelRow({ name, type, active, onClick, tee }: { name: string; type: 
     <button onClick={onClick}
       className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-left text-sm transition-colors"
       style={{ background: active ? "var(--bf-quinary)" : "transparent", color: active ? "var(--foreground)" : "var(--bf-senary)" }}
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(19,19,21,0.05)"; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
       {tee
         ? <Lock size={16} style={{ color: active ? "var(--bf-fire)" : "var(--bf-symbol)", flexShrink: 0 }} strokeWidth={2} />
@@ -489,7 +489,7 @@ function KnowledgeChannelRow({ name, active, onClick }: { name: string; active: 
     <button onClick={onClick}
       className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-left text-sm transition-colors"
       style={{ background: active ? "var(--bf-quinary)" : "transparent", color: active ? "var(--foreground)" : "var(--bf-senary)" }}
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(19,19,21,0.05)"; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
       <BookOpen size={18} style={{ color: active ? "var(--bf-fire)" : "var(--bf-symbol)", flexShrink: 0 }} strokeWidth={1.5} />
       <span className="truncate flex-1">{name}</span>
@@ -504,7 +504,7 @@ function AuditChannelRow({ name, active, onClick }: { name: string; active: bool
     <button onClick={onClick}
       className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-left text-sm transition-colors"
       style={{ background: active ? "var(--bf-quinary)" : "transparent", color: active ? "var(--foreground)" : "var(--bf-senary)" }}
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(19,19,21,0.05)"; }}
       onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
       <ShieldAlert size={18} style={{ color: active ? "var(--bf-fire)" : "var(--bf-symbol)", flexShrink: 0 }} strokeWidth={1.5} />
       <span className="truncate flex-1">{name}</span>
@@ -526,7 +526,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[var(--on-ink)] text-sm font-semibold">{entry.agentName}</span>
+            <span className="text-[var(--foreground)] text-sm font-semibold">{entry.agentName}</span>
             <span className="text-xs px-1.5 py-0.5 rounded font-bold text-[var(--on-ink)] uppercase" style={{ background: "var(--bf-accent)", fontSize: 9 }}>BOT</span>
             <span className="text-xs" style={{ color: "var(--bf-gray)" }}>#{entry.channel}</span>
           </div>

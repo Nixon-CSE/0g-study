@@ -157,7 +157,7 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
               onMouseEnter={() => setMentionIndex(i)}
             >
               <Avatar name={agent.name} size={24} src={agent.avatar} color="var(--bf-fire)" className="flex-shrink-0" />
-              <span className="text-sm font-semibold text-[var(--on-ink)]">{agent.name}</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">{agent.name}</span>
               {agent.slug && (
                 <span className="text-xs font-mono" style={{ color: "var(--bf-gray)" }}>@{agent.slug}</span>
               )}

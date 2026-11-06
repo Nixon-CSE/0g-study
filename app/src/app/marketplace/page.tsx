@@ -113,7 +113,7 @@ function EditAgentModal({ agent, onClose, onSaved }: {
     </div>
   );
 
-  const inputCls = "w-full rounded-lg px-3 py-2 text-sm text-[var(--on-ink)] outline-none focus:ring-1 focus:ring-[var(--bf-accent)]";
+  const inputCls = "w-full rounded-lg px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--bf-accent)]";
   const inputStyle = { background: 'var(--bf-quaternary)', border: '1px solid var(--bf-quinary)' };
 
   return (
@@ -339,7 +339,7 @@ function AgentDetailOverlay({
           {/* Left */}
           <div className="flex-1 overflow-y-auto px-6 pt-4 pb-6">
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-[var(--on-ink)] text-2xl font-bold">{agent.name}</h2>
+              <h2 className="text-[var(--foreground)] text-2xl font-bold">{agent.name}</h2>
               <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{ background: 'var(--bf-accent)', color: 'var(--on-ink)' }}>BOT</span>
               <PriceLabel agent={agent} />
             </div>

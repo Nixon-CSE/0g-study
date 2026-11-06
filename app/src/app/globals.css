@@ -11,7 +11,7 @@
   --ink-raised: #1b1b1f;
   --foreground: #131315;
   --muted: #56565e;
-  --subtle: #63636b;
+  --subtle: #5c5c64;     /* ≥ 4.5:1 on every light surface incl. --bf-quinary */
   --on-ink: #f4f4f1;
   --on-ink-muted: #a0a0a8;
   --mint: #c7e6da;       --mint-ink: #1d5b49;

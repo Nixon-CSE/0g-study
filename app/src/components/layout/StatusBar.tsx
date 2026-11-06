@@ -154,7 +154,7 @@ function FundPopover({
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between text-xs px-3 py-2 rounded font-semibold"
-          style={{ background: "var(--bf-plum)", color: "var(--bf-white)" }}
+          style={{ background: "var(--bf-plum)", color: "var(--on-ink)" }}
         >
           <span className="flex items-center gap-1.5">
             <Droplets size={12} /> Open 0G Faucet

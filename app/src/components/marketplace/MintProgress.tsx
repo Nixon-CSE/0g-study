@@ -125,7 +125,7 @@ export function MintProgress({ step, error }: Props) {
                     : isActive
                       ? 'var(--bf-fire)'
                       : 'var(--bf-quaternary)',
-                  color: isDone ? '#1f6b55' : '#fff',
+                  color: isDone ? 'var(--positive)' : isActive ? 'var(--on-ink)' : 'var(--bf-gray)',
                   border: isActive ? '2px solid var(--bf-fire)' : 'none',
                 }}
               >
@@ -135,7 +135,7 @@ export function MintProgress({ step, error }: Props) {
               <div>
                 <p
                   className="text-sm font-semibold"
-                  style={{ color: isActive ? '#fff' : isDone ? '#1f6b55' : 'var(--bf-gray)' }}
+                  style={{ color: isActive ? 'var(--foreground)' : isDone ? 'var(--positive)' : 'var(--bf-gray)' }}
                 >
                   {s.label}
                   {isActive && (

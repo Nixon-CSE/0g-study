@@ -137,7 +137,7 @@ function ServerRow({ server, agent, onSuccess, onError }: ServerRowProps) {
         onClick={handleClick}
         disabled={busy}
         className="px-3 py-1.5 rounded text-sm font-semibold disabled:opacity-50 flex-shrink-0 transition-opacity hover:opacity-90"
-        style={{ background: 'var(--bf-fire)', color: 'var(--bf-white)' }}
+        style={{ background: 'var(--bf-fire)', color: 'var(--on-ink)' }}
       >
         {state === 'paying' ? 'Waiting for payment…' :
           state === 'inviting' ? 'Inviting…' :
@@ -181,7 +181,7 @@ export default function InviteAgentToServerModal({ agent, onClose, onSuccess }: 
         style={{ background: 'var(--bf-tertiary)', border: '1px solid var(--bf-quaternary)' }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-[var(--on-ink)] font-semibold text-sm">{agent.name}</span>
+          <span className="text-[var(--foreground)] font-semibold text-sm">{agent.name}</span>
           <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{ background: 'var(--bf-accent)', color: 'var(--on-ink)' }}>BOT</span>
         </div>
         <div className="flex items-center gap-2">

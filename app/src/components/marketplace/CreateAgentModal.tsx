@@ -537,7 +537,7 @@ export default function CreateAgentModal({ onClose, onCreated }: Props) {
             <button
               onClick={handleRetry}
               className="px-5 py-2 rounded text-sm font-semibold transition-opacity hover:opacity-90"
-              style={{ background: 'var(--bf-fire)', color: 'var(--bf-white)' }}
+              style={{ background: 'var(--bf-fire)', color: 'var(--on-ink)' }}
             >
               Back to form
             </button>
@@ -1007,7 +1007,7 @@ export default function CreateAgentModal({ onClose, onCreated }: Props) {
             type="submit"
             disabled={submitting || walletMissing}
             className="px-5 py-2 rounded text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-default"
-            style={{ background: 'var(--bf-fire)', color: 'var(--bf-white)' }}
+            style={{ background: 'var(--bf-fire)', color: 'var(--on-ink)' }}
           >
             {submitting ? 'Minting…' : 'Mint Agent'}
           </button>

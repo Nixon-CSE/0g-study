@@ -1,6 +1,7 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentToastItem } from "@/components/shared/AgentToast";
+import { enqueueToast, notifyDecision, toastPreview } from "@/lib/agent-toast-policy";
 
 let _seq = 0;
 const nextId = () => `n-${++_seq}`;
@@ -11,8 +12,19 @@ function notificationsEnabled(): boolean {
   try { return localStorage.getItem(LS_KEY) !== "false"; } catch { return true; }
 }
 
-export function useAgentNotifications() {
+export interface AgentNotification extends Omit<AgentToastItem, "id"> {
+  /** Channel the reply landed in; replies in the channel on screen are not toasted. */
+  channelId?: string | null;
+}
+
+/**
+ * @param getViewingChannelId returns the channel currently on screen (read at push time, so a ref
+ *        getter is fine and keeps `push` stable).
+ */
+export function useAgentNotifications(getViewingChannelId: () => string | null | undefined = () => null) {
   const [toasts, setToasts] = useState<AgentToastItem[]>([]);
+  const viewingRef = useRef(getViewingChannelId);
+  useEffect(() => { viewingRef.current = getViewingChannelId; }, [getViewingChannelId]);
   const permRef = useRef<NotificationPermission | "unsupported">(
     typeof Notification === "undefined" ? "unsupported" : Notification.permission,
   );
@@ -20,36 +32,34 @@ export function useAgentNotifications() {
   const requestPermission = useCallback(async () => {
     if (typeof Notification === "undefined") return;
     if (Notification.permission === "default") {
-      const p = await Notification.requestPermission();
-      permRef.current = p;
+      permRef.current = await Notification.requestPermission();
     }
   }, []);
 
-  const push = useCallback((item: Omit<AgentToastItem, "id">) => {
+  const push = useCallback(({ channelId, ...item }: AgentNotification) => {
     if (!notificationsEnabled()) return;
-
-    const id = nextId();
-
-    // Browser notification when tab is hidden
-    if (
-      typeof document !== "undefined" &&
-      document.hidden &&
-      permRef.current === "granted"
-    ) {
-      const title = item.isTask
-        ? `${item.agentName} completed a task`
-        : item.agentName;
-      const body = item.message.slice(0, 100);
-      new Notification(title, { body, icon: item.agentAvatar });
-      return; // don't also show in-app toast when tab is hidden
+    const message = toastPreview(item.message);
+    const decision = notifyDecision({
+      replyChannelId: channelId,
+      viewingChannelId: viewingRef.current(),
+      documentHidden: typeof document !== "undefined" && document.hidden,
+      systemPermission: permRef.current,
+    });
+    if (decision === "none") return;
+    if (decision === "system") {
+      try {
+        new Notification(item.isTask ? `${item.agentName} completed a task` : item.agentName, {
+          body: message,
+          icon: item.agentAvatar,
+        });
+      } catch { /* some browsers throw outside a service worker; a missed OS notification is fine */ }
+      return;
     }
-
-    // In-app toast
-    setToasts(prev => [...prev.slice(-4), { ...item, id }]);
+    setToasts((prev) => enqueueToast(prev, { ...item, message, id: nextId() }));
   }, []);
 
   const dismiss = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   return { toasts, push, dismiss, requestPermission };
