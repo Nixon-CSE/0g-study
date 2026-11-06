@@ -45,4 +45,16 @@ describe('detectNarration', () => {
     ];
     for (const s of clean) expect(detectNarration(s), s).toEqual([]);
   });
+
+  it("the Note Reader's honest read-failure message is not narration; the same words from the Tutor are", () => {
+    // Live E2E 2026-11-06 09:41 UTC, run 1.
+    const reader = "I couldn't read that upload — the image didn't come through on my end, so I don't have any text from it and I won't guess at the contents.\n\nA couple of things you can try:\n\n- Re-upload the photo, ideally in good light, straight-on, with the page filling the frame\n- Or just paste the text here and I'll clean it up and pull out the key concepts\n\n@study-tutor";
+    expect(detectNarration(reader, { agent: 'study-note-reader' })).toEqual([]);
+    expect(detectNarration(reader)).toEqual(["didn't come through"]);
+    const tutor = "The photo didn't come through to me either, so I can't see your notes yet.";
+    expect(detectNarration(tutor, { agent: 'study-tutor' })).toEqual(["didn't come through"]);
+    expect(detectNarration(tutor, { agent: 'study-examiner' })).not.toEqual([]);
+    // Only that pattern is exempt for the Reader.
+    expect(detectNarration('I called read_notes and the hand-off from the tutor was empty.', { agent: 'study-note-reader' })).not.toEqual([]);
+  });
 });

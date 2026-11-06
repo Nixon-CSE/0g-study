@@ -441,7 +441,7 @@ await everyRun('the Tutor reply carries ≥ 4 Q/A flashcards, then one @study-ex
   return null;
 });
 await everyRun('no reply narrates tools, hand-offs, retrieval or missing data (detectNarration)', (r) => {
-  for (const { slug, reply } of allReplies(r)) { const h = p2.detectNarration(reply); if (h.length) return `${slug}: ${h.join(' / ')}`; }
+  for (const { slug, reply } of allReplies(r)) { const h = p2.detectNarration(reply, { agent: slug }); if (h.length) return `${slug}: ${h.join(' / ')}`; }
   return null;
 });
 await everyRun('the Examiner asks a question and mentions nobody', (r) => {
