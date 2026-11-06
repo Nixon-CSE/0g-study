@@ -8,7 +8,7 @@ import { currentContext } from '../runtime/request-context.js';
  *   base URL: https://router-api.0g.ai/v1
  *   key:      https://pc.0g.ai/dashboard/api-keys  ->  ZEROG_API_KEY
  *
- * Every call (chat + image) is traced: request id (response header), status, token usage.
+ * Every call (chat, image, embeddings) is traced: request id (response header), status, token usage.
  * Request ids are drained by the agent loop and attached to the reply so the UI can show proof.
  */
 export const ZEROG_ROUTER_URL = 'https://router-api.0g.ai/v1';
@@ -18,10 +18,13 @@ export const DEFAULT_ROUTER_MODEL = 'deepseek-v4.1-flash';
 // Vision: transcribed a printed notes photo faithfully (data URL in image_url). No tool calls — not needed.
 export const DEFAULT_VISION_MODEL = 'qwen2.5-vl-72b-instruct';
 export const DEFAULT_IMAGE_MODEL = 'z-image';
+// Embeddings (study memory / RAG): verified 2026-11-06 with scripts/smoke-embeddings.mjs: 1024-dim,
+// batching works, 32k-token context, x-request-id like chat. qwen3-embedding-8b (4096-dim) also works.
+export const DEFAULT_EMBED_MODEL = 'qwen3-embedding-0.6b';
 
 export interface RouterCall {
   requestId: string | null;
-  kind: 'chat' | 'image' | 'other';
+  kind: 'chat' | 'image' | 'embedding' | 'other';
   status: number;
   studentId?: string;
   tokens: number;
@@ -104,7 +107,7 @@ export function makeTracedFetch(base: typeof fetch = fetch): typeof fetch {
     const ctx = currentContext();
     const call: RouterCall = {
       requestId,
-      kind: url.includes('/images/') ? 'image' : url.includes('/chat/') ? 'chat' : 'other',
+      kind: url.includes('/images/') ? 'image' : url.includes('/chat/') ? 'chat' : url.includes('/embeddings') ? 'embedding' : 'other',
       status: res.status,
       tokens,
       studentId: ctx?.studentId,

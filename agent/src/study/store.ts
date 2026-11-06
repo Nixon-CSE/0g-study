@@ -20,9 +20,9 @@ function userDir(agentDir: string, userId: string): string {
   return path.join(agentDir, 'study', userId);
 }
 
-/** Per-file write queue: logStudySet is read-modify-write, so concurrent calls must not interleave. */
+/** Per-file write queue: read-modify-write callers (logStudySet, the RAG index) must not interleave. */
 const fileLocks = new Map<string, Promise<unknown>>();
-function withFileLock<T>(file: string, fn: () => Promise<T>): Promise<T> {
+export function withFileLock<T>(file: string, fn: () => Promise<T>): Promise<T> {
   const prev = fileLocks.get(file) ?? Promise.resolve();
   const run = prev.then(fn, fn);
   const tail = run.catch(() => {});

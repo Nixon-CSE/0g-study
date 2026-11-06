@@ -182,7 +182,8 @@ export class MemoryStore {
   }
 }
 
-function cosineDistance(a: Float32Array | number[], b: Float32Array | number[]): number {
+/** 1 - cosine similarity (0 = same direction). Also used by the RAG ranker. */
+export function cosineDistance(a: Float32Array | number[], b: Float32Array | number[]): number {
   const n = Math.min(a.length, b.length);
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < n; i++) {
