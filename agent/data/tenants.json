@@ -136,7 +136,7 @@
       "provider": "zerog-router"
     },
     "createdAt": "2026-11-05T19:02:15.035Z",
-    "updatedAt": "2026-11-05T22:31:48.416Z"
+    "updatedAt": "2026-11-06T02:55:17.661Z"
   },
   {
     "slug": "study-tutor",
@@ -153,7 +153,7 @@
       "provider": "zerog-router"
     },
     "createdAt": "2026-11-05T19:02:15.059Z",
-    "updatedAt": "2026-11-05T22:31:48.428Z"
+    "updatedAt": "2026-11-06T02:55:17.673Z"
   },
   {
     "slug": "study-examiner",
@@ -170,6 +170,6 @@
       "provider": "zerog-router"
     },
     "createdAt": "2026-11-05T19:02:15.062Z",
-    "updatedAt": "2026-11-05T22:31:48.437Z"
+    "updatedAt": "2026-11-06T02:55:17.678Z"
   }
 ]
