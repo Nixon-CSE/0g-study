@@ -1,0 +1,71 @@
+# Render Blueprint: the agent and the backend on the free plan, from main. The app stays on Vercel.
+#
+# Values marked `sync: false` are secrets or need a human: Render asks for them when you create the
+# Blueprint and never reads them from this file. Render injects PORT and both services listen on it.
+#
+# Free plan: there's no persistent disk, and a service's files are lost when it redeploys, restarts
+# or spins down after 15 idle minutes (DEPLOY.md says what that means for the demo).
+#
+# Paths are relative to rootDir.
+services:
+  - type: web
+    name: 0g-study-agent
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: agent
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: ZEROG_API_KEY
+        sync: false
+      - key: STUDY_JWT_SECRET
+        sync: false
+      - key: AGENT_ADMIN_TOKEN
+        sync: false
+      - key: STUDY_ALLOWED_ORIGINS
+        value: https://0g-study.vercel.app
+      - key: ZEROG_LLM_MODEL
+        value: deepseek-v4.1-flash
+      - key: ZEROG_VISION_MODEL
+        value: gemini-2.5-flash
+      - key: ZEROG_EMBED_MODEL
+        value: qwen3-embedding-0.6b
+      - key: ZEROG_USER_ACCOUNTS
+        value: "on"
+      - key: STUDY_DAILY_CALL_CAP
+        value: "30"
+      - key: STUDY_DAILY_UPLOAD_CAP
+        value: "20"
+
+  - type: web
+    name: 0g-study-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: AGENT_ADMIN_TOKEN
+        sync: false
+      - key: PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_SECRET
+        sync: false
+      # The agent's public URL: free services have no private network. agentFetch sends the admin
+      # token only to this origin. It's asked for at creation because Render assigns the hostname.
+      - key: EMBER_AGENT_BASE_URL
+        sync: false
+      - key: MONGODB_DB
+        value: bonfire
+      - key: CORS_ORIGINS
+        value: https://0g-study.vercel.app

@@ -9,6 +9,11 @@ const [APP, BACKEND, AGENT] = process.argv.slice(2).map((u) => u?.replace(/\/$/,
 if (!AGENT) { console.error('usage: node scripts/smoke-deployed.mjs <app URL> <backend URL> <agent URL>'); process.exit(2); }
 
 const EVIL = 'https://evil.example';
+
+// Free hosts sleep when idle, and waking takes about a minute. Wake everything before the timed checks.
+console.log('Warming up (a sleeping free service can take about a minute)…');
+await Promise.all([`${AGENT}/health`, `${BACKEND}/health`, `${APP}/`].map((u) =>
+  fetch(u, { signal: AbortSignal.timeout(150_000) }).then((r) => r.text()).catch(() => {})));
 const results = [];
 async function check(name, fn) {
   try { await fn(); results.push(true); console.log(`  \x1b[32m✓\x1b[0m ${name}`); }

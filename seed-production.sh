@@ -12,6 +12,7 @@ set -a; . "$ENV_FILE"; set +a
 for v in MONGODB_URI MONGODB_DB EMBER_AGENT_BASE_URL AGENT_PUBLIC_URL AGENT_ADMIN_TOKEN; do
   [[ -n "${!v:-}" ]] || { echo "$v is empty in .env.production"; exit 1; }
 done
-curl -sf -m 15 "$AGENT_PUBLIC_URL/health" >/dev/null || { echo "Can't reach the agent at AGENT_PUBLIC_URL ($AGENT_PUBLIC_URL)"; exit 1; }
+# A sleeping free service can take about a minute to wake.
+curl -sf -m 150 "$AGENT_PUBLIC_URL/health" >/dev/null || { echo "Can't reach the agent at AGENT_PUBLIC_URL ($AGENT_PUBLIC_URL)"; exit 1; }
 echo "Seeding database \"$MONGODB_DB\" via $AGENT_PUBLIC_URL (agents will use $EMBER_AGENT_BASE_URL)"
 cd "$ROOT/backend" && exec ./node_modules/.bin/tsx scripts/seed-study-pod.mjs --owner "$1"

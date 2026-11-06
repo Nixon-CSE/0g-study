@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import abi from '../src/chain/bonfire-agent-inft-abi.js';
+import { AGENT_ADMIN_HEADER, agentAdminHeaders } from '../src/agents/admin-token.js';
 
 const BACKEND = path.resolve(__dirname, '..');
 
@@ -27,3 +28,23 @@ describe('the backend image only contains backend/', () => {
     expect(abi).toEqual(real);
   });
 });
+
+describe('admin token with a public agent URL (free plan: no private network)', () => {
+  const saved = { token: process.env.AGENT_ADMIN_TOKEN, base: process.env.EMBER_AGENT_BASE_URL };
+  afterEach(() => {
+    if (saved.token === undefined) delete process.env.AGENT_ADMIN_TOKEN; else process.env.AGENT_ADMIN_TOKEN = saved.token;
+    if (saved.base === undefined) delete process.env.EMBER_AGENT_BASE_URL; else process.env.EMBER_AGENT_BASE_URL = saved.base;
+  });
+  it('goes only to that exact origin', () => {
+    process.env.AGENT_ADMIN_TOKEN = 't'.repeat(64);
+    process.env.EMBER_AGENT_BASE_URL = 'https://0g-study-agent.onrender.com';
+    expect(agentAdminHeaders('https://0g-study-agent.onrender.com/tenants')).toEqual({ [AGENT_ADMIN_HEADER]: 't'.repeat(64) });
+    for (const url of [
+      'https://someone-else.onrender.com/chat/message',
+      'https://0g-study-agent.onrender.com.evil.example/x',
+      'http://0g-study-agent.onrender.com/tenants',
+      'https://evil.example/https://0g-study-agent.onrender.com',
+    ]) expect(agentAdminHeaders(url), url).toEqual({});
+  });
+});
+

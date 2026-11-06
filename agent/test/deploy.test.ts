@@ -129,3 +129,32 @@ describe('upload size limit', () => {
     expect(r.status).toBe(200);
   });
 });
+
+describe('render.yaml (free plan)', () => {
+  const yaml = fs.readFileSync(path.resolve(__dirname, '../../render.yaml'), 'utf8');
+  it('both services: free, Docker, Singapore, health-checked, and PORT left to Render', () => {
+    expect(yaml.match(/^\s+plan: free$/gm)).toHaveLength(2);
+    expect(yaml.match(/^\s+runtime: docker$/gm)).toHaveLength(2);
+    expect(yaml.match(/^\s+region: singapore$/gm)).toHaveLength(2);
+    expect(yaml.match(/^\s+healthCheckPath: \/health$/gm)).toHaveLength(2);
+    expect(yaml).toMatch(/rootDir: agent\n\s+dockerfilePath: \.\/docker\/Dockerfile/);
+    expect(yaml).toMatch(/rootDir: backend\n\s+dockerfilePath: \.\/Dockerfile/);
+    expect(yaml).not.toMatch(/key: PORT/);
+    expect(yaml).not.toMatch(/^\s+disk:/m);
+  });
+  it('every secret is sync: false, so none can live in the file', () => {
+    for (const k of ['ZEROG_API_KEY', 'STUDY_JWT_SECRET', 'AGENT_ADMIN_TOKEN', 'MONGODB_URI', 'JWT_SECRET', 'PRIVY_APP_SECRET']) {
+      const rows = [...yaml.matchAll(new RegExp(`key: ${k}\\n\\s+(\\S+: \\S+)`, 'g'))];
+      expect(rows.length, k).toBeGreaterThan(0);
+      for (const r of rows) expect(r[1], k).toBe('sync: false');
+    }
+    expect(yaml).not.toMatch(/sk-[A-Za-z0-9]|mongodb\+srv|[0-9a-f]{40,}/);
+  });
+});
+
+describe('no disk on the free plan', () => {
+  it('production checks need no volume: a Render boot with the secrets passes', () => {
+    expect(productionEnvProblems({ ...OK, RENDER: 'true' })).toEqual([]);
+  });
+});
+
