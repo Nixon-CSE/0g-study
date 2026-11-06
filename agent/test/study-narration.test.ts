@@ -20,6 +20,8 @@ describe('detectNarration', () => {
       'The search returned no earlier passages.',
       'Handing off to the next agent now.',
       'Thanks for the hand-off!',
+      'The hand-off from the tutor had no cards.',
+      'The tutor handed me six cards.',
       // Seen in the live E2E on 2026-11-06:
       "I don't have any notes to work from yet — the page didn't come through.",
       "I'll pull up anything related from your earlier notes, then walk you through the tricky parts.",
@@ -36,6 +38,9 @@ describe('detectNarration', () => {
       formatFlashcardsBlock([{ q: 'What does RuBisCO do?', a: 'It fixes CO2 onto RuBP.' }])!,
       'Momentum came up again: in a collision it is conserved. ⟦0g:abc-123⟧',
       "Let's put those cards to work — answer from memory.",
+      // Live E2E 2026-11-06: a biology metaphor, not a pipeline hand-off.
+      'Light energy becomes chemical bond energy in sugar, and the Calvin cycle is the hand-off point.',
+      'ATP and NADPH are handed over to the Calvin cycle in the stroma.',
       'Go back to your earlier notes on the light reactions if this feels shaky [notes · 2026-11-05 · #1].',
     ];
     for (const s of clean) expect(detectNarration(s), s).toEqual([]);

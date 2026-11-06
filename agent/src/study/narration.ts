@@ -6,8 +6,11 @@
  * Keep this file free of imports and TypeScript-only syntax beyond types, so scripts can load it via tsx.
  */
 export const NARRATION_PATTERNS: readonly RegExp[] = [
-  /\bhand-?offs?\b/i,
-  /\bhanded (me|over|off)\b/i,
+  // "hand-off" only in the meta sense: "the Calvin cycle is the hand-off point" is biology, not narration.
+  /\b(?:in|from|through|via|after|during|with|for) (?:the|that|this|my|your|our|their) hand-?offs?\b/i,
+  /\bhand-?offs? (?:came|went|was|is|didn't|did not|had|from (?:the|@)|to (?:me|the (?:examiner|tutor|next)|@))/i,
+  /\bhand(?:ing|ed|s)?(?: (?:it|this|you|things))? (?:off|over) to (?:the )?(?:next (?:agent|stage|step)|@|examiner|tutor|note reader|another agent)/i,
+  /\bhanded (?:me|us)\b/i,
   /\bcame through\b/i,
   /\b(?:didn't|did not|never|doesn't|does not) (?:come|get|go) through\b/i,
   /\b(?:pull(?:ing)? up|look(?:ing)? up|look(?:ing)? through|search(?:ing)?|check(?:ing)?|dig(?:ging)? (?:up|into)) (?:anything|something|what)?[^.\n]{0,40}\b(?:earlier|past|previous|old) notes\b/i,
