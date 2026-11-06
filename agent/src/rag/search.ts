@@ -15,7 +15,9 @@ export interface RankOptions {
 }
 
 export const DEFAULT_K = 4;
-export const DEFAULT_MIN_SCORE = 0.35;
+// Measured on 2026-11-06 with qwen3-embedding-0.6b on real notes: relevant short queries score
+// 0.35-0.49, unrelated chunks 0.19-0.24. A 0.35 floor dropped real hits ("enzyme that fixes CO2" = 0.353).
+export const DEFAULT_MIN_SCORE = 0.3;
 
 export function citationFor(source: RagSource, n: number): string {
   return source.kind === 'notes' ? `notes · ${source.day} · #${n}` : `kb · ${source.title} · #${n}`;
