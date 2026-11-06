@@ -5,16 +5,17 @@ import { recallNotes } from '../../rag/notes.js';
 import { isSafeId, studyStats } from '../../study/store.js';
 import { checkUpload, saveUpload } from '../../study/uploads.js';
 import { studyAuth, takeUploadSlot } from '../../study/auth.js';
-import { accountsEnabled, deleteUserKeys, fetchBalance, loadUserKeys, saveUserKeys, validKeys } from '../../study/zerog-account.js';
+import { accountsEnabled, cachedUsageHistory, deleteUserKeys, fetchApiKeys, fetchBalance, fetchUsageHistory, forgetUsageHistory, keyFormatError, loadUserKeys, publicBalance, saveUserKeys, verifyUserKeys, type UserKeys } from '../../study/zerog-account.js';
 
 /**
  * GET /usage (today's 0G usage) · POST /uploads (notes photo) · GET /study/index (streak + cards)
  * GET /study/recall?q= (search the student's own past notes; one 0G embeddings call)
  * FR9 (ZEROG_USER_ACCOUNTS=on): GET/POST/DELETE /study/account — connect your own 0G keys, read your balance.
+ * GET /study/account/billing?ids= — what your own account was billed for those request ids.
  * All sit behind studyAuth (NFR1): with STUDY_JWT_SECRET set they require the BonFire study token and
  * always answer for the token's user; without it (local dev) `?user=` is used and /study/account is off.
  */
-export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBalance } = {}) {
+export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBalance; listKeys?: typeof fetchApiKeys; history?: typeof fetchUsageHistory } = {}) {
   const balanceOf = deps.balance ?? fetchBalance;
   const app = new Hono<{ Variables: { studyUser?: string } }>();
   app.use('/usage', studyAuth);
@@ -84,28 +85,47 @@ export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBala
     if (!keys) return c.json({ enabled: true, connected: false });
     const b = await balanceOf(keys.managementKey);
     return c.json(b.ok
-      ? { enabled: true, connected: true, balance0G: b.balance0G }
-      : { enabled: true, connected: true, balance0G: null, error: b.error });
+      ? { enabled: true, connected: true, balance: publicBalance(b.balance) }
+      : { enabled: true, connected: true, balance: null, error: b.error });
   });
 
   app.post('/study/account', async (c) => {
     const user = accountUser(c);
     if (!user) return c.json({ error: 'connecting a 0G account is not enabled on this server' }, 403);
     const body = await c.req.json().catch(() => null);
-    if (!validKeys(body)) return c.json({ error: 'need apiKey (sk-…) and managementKey (mk-… with account:read)' }, 400);
-    const b = await balanceOf(body.managementKey);
-    if (!b.ok) {
-      const hint = b.status === 401 || b.status === 403 ? ' — check the management key has the account:read scope' : '';
-      return c.json({ error: `could not read your 0G balance: ${b.error}${hint}` }, 400);
-    }
-    await saveUserKeys(agentDir, user, { apiKey: body.apiKey, managementKey: body.managementKey });
-    return c.json({ connected: true, balance0G: b.balance0G });
+    const bad = keyFormatError(body);
+    if (bad) return c.json({ error: bad }, 400);
+    const keys: UserKeys = { apiKey: body.apiKey, managementKey: body.managementKey };
+    // Nothing is stored until both keys check out live.
+    const v = await verifyUserKeys(keys, { balance: balanceOf, listKeys: deps.listKeys });
+    if (!v.ok) return c.json({ error: v.error }, v.status as 400 | 502);
+    await saveUserKeys(agentDir, user, keys);
+    forgetUsageHistory(user);
+    return c.json({ connected: true, balance: publicBalance(v.balance) });
+  });
+
+  // Billing proof for a reply. Always the token user's own history, read with their own mk- key; ids
+  // from another student's reply just don't match. History can lag, so a miss is simply absent.
+  app.get('/study/account/billing', async (c) => {
+    const user = accountUser(c);
+    if (!user) return c.json({ connected: false, items: {} });
+    if (c.req.query('user') && c.req.query('user') !== user) return c.json({ error: 'forbidden' }, 403);
+    const ids = (c.req.query('ids') ?? '').split(',').filter((id) => /^[A-Za-z0-9-]{1,64}$/.test(id)).slice(0, 100);
+    if (ids.length === 0) return c.json({ error: 'ids required' }, 400);
+    const keys = await loadUserKeys(agentDir, user);
+    if (!keys) return c.json({ connected: false, items: {} });
+    const h = await cachedUsageHistory(user, keys.managementKey, deps.history);
+    if (!h.ok) return c.json({ connected: true, items: {}, error: h.error });
+    const wanted = new Set(ids);
+    const items = Object.fromEntries(h.calls.filter((x) => wanted.has(x.requestId)).map(({ requestId, ...rest }) => [requestId, rest]));
+    return c.json({ connected: true, currency: h.currency, items });
   });
 
   app.delete('/study/account', async (c) => {
     const user = accountUser(c);
     if (!user) return c.json({ error: 'not enabled' }, 403);
     await deleteUserKeys(agentDir, user);
+    forgetUsageHistory(user);
     return c.json({ connected: false });
   });
 

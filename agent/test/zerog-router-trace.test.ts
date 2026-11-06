@@ -77,6 +77,20 @@ describe('formatRequestIdMarker', () => {
     expect(ctx.calls.map((c) => c.e2ee)).toEqual(['sealed', 'none', null]);
     expect(formatRequestIdMarker(ctx.calls)).toBe('\n\n⟦0g:r1~sealed,r2~none,r3⟧');
   });
+
+  it('carries the model next to each request id (P5-iAI step 5)', async () => {
+    expect(formatRequestIdMarker([{ requestId: 'a', e2ee: 'sealed', model: 'glm-5.3' }, { requestId: 'b', e2ee: null, model: 'gemini-2.5-flash' }, { requestId: 'c', model: 'bad model⟧' }]))
+      .toBe('\n\n⟦0g:a~sealed~glm-5.3,b~~gemini-2.5-flash,c⟧');
+    resetRouterTrace();
+    const said = makeTracedFetch(async () => json({ model: 'deepseek-v4.1-flash', usage: { total_tokens: 1 } }, { 'x-request-id': 'r1', 'x-0g-e2ee': 'none' }));
+    const silent = makeTracedFetch(async () => json({ usage: { total_tokens: 1 } }, { 'x-request-id': 'r2' }));
+    const ctx = { calls: [] as any[] };
+    await runWithContext(ctx, async () => {
+      await said('https://router/v1/chat/completions', { method: 'POST', body: JSON.stringify({ model: 'requested-model' }) });
+      await silent('https://router/v1/embeddings', { method: 'POST', body: JSON.stringify({ model: 'qwen3-embedding-0.6b' }) });
+    });
+    expect(ctx.calls.map((c) => c.model)).toEqual(['deepseek-v4.1-flash', 'qwen3-embedding-0.6b']);
+  });
 });
 
 import { pickRequestId, withThinkingOff } from '../src/providers/zerog-router.js';

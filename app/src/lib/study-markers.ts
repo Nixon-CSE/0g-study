@@ -1,6 +1,6 @@
 // Markers embedded in message text (a pragmatic transport for the hackathon; see prd.md G6):
-//   ⟦0g:<id>,<id>⟧   0G Private Computer request ids, appended by the agent runtime; an id may carry the
-//                    router's x-0g-e2ee header value as `<id>~<value>` (e.g. `~sealed`), shown verbatim
+//   ⟦0g:<id>,<id>⟧   0G Private Computer request ids, appended by the agent runtime. An entry may add the
+//                    router's x-0g-e2ee value and the model: `<id>~sealed~glm-5.3`, `<id>~~gemini-2.5-flash`
 //   [[upload:<id>]]  notes photo attached by the student
 
 const ZG_RE = /\n*⟦0g:([^⟧]*)⟧/g;
@@ -13,25 +13,43 @@ export interface ParsedMarkers {
   uploadIds: string[];
   /** x-0g-e2ee value per request id, only for ids that carried one (verbatim, e.g. "sealed" / "none"). */
   e2ee: Record<string, string>;
+  /** The model behind each request id, only for ids that carried one. */
+  models: Record<string, string>;
 }
 
 // The runtime appends exactly one marker at the very end of a reply. Only that one is proof;
 // a marker anywhere else (echoed by the model, typed by a user) is stripped but never trusted.
 const TRAILING_ZG_RE = /⟦0g:([^⟧]*)⟧\s*$/;
-const REQUEST_ID_RE = /^([A-Za-z0-9-]{1,64})(?:~([a-z]{1,16}))?$/;
+const REQUEST_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+const E2EE_RE = /^[a-z]{1,16}$/;
+const MODEL_RE = /^[A-Za-z0-9._:/-]{1,64}$/;
+
+/** `id`, `id~e2ee`, `id~e2ee~model` or `id~~model`; anything else makes the whole marker untrusted. */
+function parseEntry(entry: string): { id: string; e2ee?: string; model?: string } | null {
+  const [id, e2ee, model, ...rest] = entry.split("~");
+  if (rest.length > 0 || !REQUEST_ID_RE.test(id)) return null;
+  if (model === undefined) {
+    if (e2ee === undefined) return { id };
+    return E2EE_RE.test(e2ee) ? { id, e2ee } : null;
+  }
+  if (!MODEL_RE.test(model) || (e2ee !== "" && !E2EE_RE.test(e2ee))) return null;
+  return { id, model, ...(e2ee ? { e2ee } : {}) };
+}
 
 export function parseMarkers(content: string): ParsedMarkers {
   const requestIds: string[] = [];
   const uploadIds: string[] = [];
   const e2ee: Record<string, string> = {};
+  const models: Record<string, string> = {};
   const trailing = (content ?? "").match(TRAILING_ZG_RE);
   if (trailing) {
     const entries = trailing[1].split(",").map((s) => s.trim()).filter(Boolean);
-    const parsed = entries.map((e) => e.match(REQUEST_ID_RE));
+    const parsed = entries.map(parseEntry);
     if (entries.length > 0 && entries.length <= 20 && parsed.every(Boolean)) {
-      for (const m of parsed as RegExpMatchArray[]) {
-        requestIds.push(m[1]);
-        if (m[2]) e2ee[m[1]] = m[2];
+      for (const p of parsed as NonNullable<ReturnType<typeof parseEntry>>[]) {
+        requestIds.push(p.id);
+        if (p.e2ee) e2ee[p.id] = p.e2ee;
+        if (p.model) models[p.id] = p.model;
       }
     }
   }
@@ -39,15 +57,18 @@ export function parseMarkers(content: string): ParsedMarkers {
     .replace(ZG_RE, "")
     .replace(UPLOAD_RE, (_m, id: string) => { uploadIds.push(id); return ""; })
     .trim();
-  return { text, requestIds, uploadIds, e2ee };
+  return { text, requestIds, uploadIds, e2ee, models };
 }
 
 /**
- * Badge tooltip: each request id with the router's own x-0g-e2ee value when it sent one, verbatim.
- * pc.0g.ai shows TEE-provider calls as "Private"; we print the header rather than infer that label.
+ * Badge tooltip: each request id with the model that produced it and the router's own x-0g-e2ee value,
+ * when known. pc.0g.ai shows TEE-provider calls as "Private"; we print the header rather than infer that.
  */
-export function requestIdTooltip(ids: string[], e2ee: Record<string, string>): string {
-  const lines = ids.map((id) => (e2ee[id] ? `${id}  (x-0g-e2ee: ${e2ee[id]})` : id));
+export function requestIdTooltip(ids: string[], e2ee: Record<string, string>, models: Record<string, string> = {}): string {
+  const lines = ids.map((id) => {
+    const notes = [models[id], e2ee[id] ? `x-0g-e2ee: ${e2ee[id]}` : null].filter(Boolean);
+    return notes.length ? `${id}  (${notes.join(" · ")})` : id;
+  });
   return `0G Private Computer request id${ids.length > 1 ? "s" : ""} (click to copy):\n${lines.join("\n")}`;
 }
 

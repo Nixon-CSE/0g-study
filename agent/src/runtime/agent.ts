@@ -1,9 +1,9 @@
 import { generateText, type CoreMessage, type LanguageModelV1, type Tool } from 'ai';
 import { buildSystemPrompt } from './prompt-builder.js';
 import { createChatModel } from './llm-client.js';
-import { callsTodayFor } from '../providers/zerog-router.js';
+import { callsTodayFor, modelValue } from '../providers/zerog-router.js';
 import { runWithContext, type RequestContext } from './request-context.js';
-import { loadUserKeys } from '../study/zerog-account.js';
+import { loadUserKeys, ownCreditsOutLine } from '../study/zerog-account.js';
 import { hashEnv } from './env-hash.js';
 import type { LoadedAgent } from '../config/loader.js';
 import type { SkillRecord } from '../skills/loader.js';
@@ -19,15 +19,17 @@ import type { Tenant } from '../tenants/types.js';
 
 /**
  * Marker line carrying 0G request ids; empty string when there are none. The UI strips it and renders a
- * badge. A call traced with the router's `x-0g-e2ee` header is written `id~<value>` (e.g. `id~sealed`),
- * so the badge can show it per request id; a bare id means the header was absent.
+ * badge. Each entry is `id[~<x-0g-e2ee>[~<model>]]`, e.g. `id~sealed~glm-5.3` or `id~~gemini-2.5-flash`,
+ * so the badge can show both per request id; a bare id means neither was known.
  */
-export function formatRequestIdMarker(calls: (string | null | { requestId: string | null; e2ee?: string | null })[]): string {
+export function formatRequestIdMarker(calls: (string | null | { requestId: string | null; e2ee?: string | null; model?: string | null })[]): string {
   const parts = calls.flatMap((c) => {
-    const id = typeof c === 'object' && c !== null ? c.requestId : c;
+    const o = typeof c === 'object' && c !== null ? c : null;
+    const id = o ? o.requestId : c;
     if (!id) return [];
-    const e2ee = typeof c === 'object' && c !== null && c.e2ee && /^[a-z]{1,16}$/.test(c.e2ee) ? c.e2ee : null;
-    return [e2ee ? `${id}~${e2ee}` : id];
+    const e2ee = o?.e2ee && /^[a-z]{1,16}$/.test(o.e2ee) ? o.e2ee : '';
+    const model = modelValue(o?.model) ?? '';
+    return [model ? `${id}~${e2ee}~${model}` : e2ee ? `${id}~${e2ee}` : id];
   });
   return parts.length ? `\n\n⟦0g:${parts.join(',')}⟧` : '';
 }
@@ -36,11 +38,14 @@ export function formatRequestIdMarker(calls: (string | null | { requestId: strin
  * NFR2: one plain line when no reply could be produced. Network failures and HTTP errors from the
  * model provider say so explicitly, so the student knows it is the inference service, not their notes.
  */
-export function failureLine(err: unknown): string {
+export function failureLine(err: unknown, opts: { ownKey?: boolean; now?: Date } = {}): string {
   if (err == null) return "_(I couldn't form a reply this turn.)_";
   const e = err as { message?: unknown; statusCode?: unknown; cause?: { code?: unknown } };
   const text = `${String(e?.message ?? err)} ${String(e?.cause?.code ?? '')}`;
   const status = typeof e?.statusCode === 'number' ? e.statusCode : undefined;
+  // A student's own key: their credits, their key. Never retried on the shared key behind their back.
+  if (opts.ownKey && status === 402) return ownCreditsOutLine(opts.now);
+  if (opts.ownKey && (status === 401 || status === 403)) return '_(0G rejected your connected API key. It may have been revoked: press disconnect in the status bar, then connect a new key or use the free tier.)_';
   if (status === 401 || status === 403) return '_(0G Private Computer rejected the request (API key). Please tell the app owner.)_';
   if (status === 402) return '_(The 0G balance paying for this is empty. Top it up at pc.0g.ai → Deposit, then try again.)_';
   if (status === 429) return '_(0G Private Computer is rate-limiting right now. Please try again in a minute.)_';
@@ -260,7 +265,7 @@ export class AgentRuntime {
     }
 
     if (!final) {
-      final = failureLine(failure);
+      final = failureLine(failure, { ownKey: !!reqCtx.zerogApiKey });
     } else {
       // Cards saved by study_log go into the reply text (before the hand-off line), by code.
       final = attachFlashcards(final, reqCtx.flashcards);

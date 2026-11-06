@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { bf } from "@/lib/api-bonfire";
+import { notePodReplies } from "@/lib/billing-session";
 import type {
   BackendServer,
   BackendChannel,
@@ -719,6 +720,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             };
           }),
         );
+
+        // The status bar re-reads the student's balance and remembers these ids for the session line.
+        notePodReplies(replies.map((r) => r.content));
 
         // Fire a notification for each agent reply
         for (const reply of replies) {

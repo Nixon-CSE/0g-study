@@ -4,6 +4,7 @@ import { DEFAULT_VISION_MODEL, routerBaseUrl, routerFetch } from '../../provider
 import { currentContext } from '../../runtime/request-context.js';
 import { logStudySet, UPLOAD_ID } from '../../study/store.js';
 import { readUpload } from '../../study/uploads.js';
+import { ownCreditsOutLine } from '../../study/zerog-account.js';
 import { indexNotes, recallNotes } from '../../rag/notes.js';
 import { formatRetrievedBlock } from '../../rag/search.js';
 import { log } from '../../util/logger.js';
@@ -38,6 +39,7 @@ export function makeStudyTools(agentDir: string) {
             }],
           }),
         });
+        if (res.status === 402 && currentContext()?.zerogApiKey) return { ok: false, status: 402, error: ownCreditsOutLine() };
         if (!res.ok) return { ok: false, status: res.status, error: "couldn't read the notes: the vision call failed" };
         const j: any = await res.json();
         const notes = j?.choices?.[0]?.message?.content;

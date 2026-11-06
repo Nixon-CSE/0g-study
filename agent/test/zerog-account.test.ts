@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sealKeys, openKeys, validKeys, neuronTo0G, fetchBalance, saveUserKeys, loadUserKeys } from '../src/study/zerog-account.js';
+import { sealKeys, openKeys, validKeys, fetchBalance, saveUserKeys, loadUserKeys, accountsOffReason } from '../src/study/zerog-account.js';
 import { withUserKey } from '../src/providers/zerog-router.js';
 import { runWithContext } from '../src/runtime/request-context.js';
 import { studyRoutes } from '../src/api/routes/study.js';
@@ -56,17 +56,13 @@ describe('user 0G keys at rest', () => {
 });
 
 describe('balance', () => {
-  it('converts neuron to 0G', () => {
-    expect(neuronTo0G('2000000000000000000')).toBe(2);
-    expect(neuronTo0G('1234567000000000')).toBe(0.001234);
-  });
   it('reads /account/balance with the management key', async () => {
     let auth = '';
     const f = (async (_u: any, init: any) => {
       auth = new Headers(init.headers).get('authorization')!;
       return new Response(JSON.stringify({ total_balance: '1500000000000000000' }), { headers: { 'content-type': 'application/json' } });
     }) as any;
-    expect(await fetchBalance('mk-abc12345678', f)).toEqual({ ok: true, balance0G: 1.5 });
+    expect(await fetchBalance('mk-abc12345678', f)).toEqual({ ok: true, address: null, balance: { currency: '0g', available: 1500000000000000000n, credit: 0n, deposit: 0n, unsettled: 0n } });
     expect(auth).toBe('Bearer mk-abc12345678');
   });
   it('surfaces 403 insufficient_scope', async () => {
@@ -94,18 +90,19 @@ describe('withUserKey', () => {
 });
 
 describe('/study/account routes', () => {
-  const okBalance = async () => ({ ok: true as const, balance0G: 3.25 });
+  const okBalance = async () => ({ ok: true as const, address: null, balance: { currency: 'usd' as const, available: 437504n, credit: 437504n, deposit: 0n, unsettled: 0n } });
+  const listKeys = async () => ({ ok: true as const, keys: [{ preview: 'sk-user…', revoked: false, expiresAt: null }] });
   const auth = { authorization: `Bearer ${token('alice')}`, 'content-type': 'application/json' };
 
   it('connects, reports the balance, never returns the keys, and disconnects', async () => {
-    const app = studyRoutes(dir, { balance: okBalance });
+    const app = studyRoutes(dir, { balance: okBalance, listKeys });
     expect(await (await app.request('/study/account', { headers: auth })).json()).toEqual({ enabled: true, connected: false });
     const post = await app.request('/study/account', { method: 'POST', headers: auth, body: JSON.stringify(KEYS) });
     expect(post.status).toBe(200);
     const postBody = await post.text();
     expect(postBody).not.toContain('sk-user');
     const got = await (await app.request('/study/account', { headers: auth })).text();
-    expect(JSON.parse(got)).toEqual({ enabled: true, connected: true, balance0G: 3.25 });
+    expect(JSON.parse(got)).toEqual({ enabled: true, connected: true, balance: { currency: 'usd', available: '437504', credit: '437504', deposit: '0', unsettled: '0' } });
     expect(got).not.toContain('mk-user');
     await app.request('/study/account', { method: 'DELETE', headers: auth });
     expect(await loadUserKeys(dir, 'alice')).toBeNull();
@@ -124,5 +121,21 @@ describe('/study/account routes', () => {
     const app = studyRoutes(dir, { balance: okBalance });
     expect(await (await app.request('/study/account', { headers: auth })).json()).toEqual({ enabled: false, connected: false });
     expect((await app.request('/study/account', { method: 'POST', headers: auth, body: JSON.stringify(KEYS) })).status).toBe(403);
+  });
+});
+
+describe('enabled by default, off with a reason (P5-iAI step 1)', () => {
+  it('needs the flag and STUDY_JWT_SECRET; the boot log gets the reason', () => {
+    expect(accountsOffReason()).toBeNull();
+    delete process.env.STUDY_JWT_SECRET;
+    expect(accountsOffReason()).toMatch(/STUDY_JWT_SECRET is not set/);
+    process.env.STUDY_JWT_SECRET = SECRET;
+    process.env.ZEROG_USER_ACCOUNTS = 'off';
+    expect(accountsOffReason()).toMatch(/ZEROG_USER_ACCOUNTS/);
+  });
+  it('the example env files turn it on', () => {
+    const read = (f: string) => fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8');
+    expect(read('.env.example')).toMatch(/^ZEROG_USER_ACCOUNTS=on$/m);
+    expect(read('../app/.env.local.example')).toMatch(/^NEXT_PUBLIC_ZEROG_ACCOUNTS=on$/m);
   });
 });

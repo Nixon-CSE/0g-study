@@ -6,6 +6,8 @@ import Avatar from "@/components/shared/Avatar";
 import FlameAvatar from "@/components/shared/FlameAvatar";
 import { useApp } from "@/context/AppContext";
 import AgentProfileModal from "@/components/agent/AgentProfileModal";
+import BillingProof from "@/components/message/BillingProof";
+import { ZEROG_ACCOUNTS_ENABLED } from "@/components/layout/ZeroGAccount";
 import { parseMarkers, badgeLabel, trustedRequestIds, citedNoteDays, requestIdTooltip } from "@/lib/study-markers";
 
 interface ToolCall {
@@ -126,6 +128,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
   const hasUpload = parsed.uploadIds.length > 0;
   const msg: Message = { ...rawMsg, content: parsed.text };
   const [showVerify, setShowVerify] = useState(false);
+  const [showBilling, setShowBilling] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const { activeServer } = useApp();
   const agentObj = msg.isBot ? activeServer?.agents.find(a => a.id === msg.authorId) : undefined;
@@ -188,8 +191,11 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
           )}
           {zgIds.length > 0 && (
             <button
-              onClick={() => navigator.clipboard?.writeText(zgIds.join(",")).catch(() => {})}
-              title={requestIdTooltip(zgIds, parsed.e2ee)}
+              onClick={() => {
+                navigator.clipboard?.writeText(zgIds.join(",")).catch(() => {});
+                if (ZEROG_ACCOUNTS_ENABLED) setShowBilling((v) => !v);
+              }}
+              title={requestIdTooltip(zgIds, parsed.e2ee, parsed.models)}
               className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-mono"
               style={{ color: "var(--bf-accent)", background: "rgba(129,22,224,0.12)" }}
             >
@@ -228,6 +234,8 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
         )}
 
         {toolContent && <ToolCallThread content={toolContent} />}
+
+        {showBilling && <BillingProof ids={zgIds} />}
 
         {showVerify && msg.teeHash && (
           <div className="mt-2 rounded-lg p-2.5 text-xs font-mono" style={{ background: "var(--bf-quaternary)", color: "var(--bf-gray)" }}>
