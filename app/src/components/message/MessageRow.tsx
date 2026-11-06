@@ -6,7 +6,7 @@ import Avatar from "@/components/shared/Avatar";
 import FlameAvatar from "@/components/shared/FlameAvatar";
 import { useApp } from "@/context/AppContext";
 import AgentProfileModal from "@/components/agent/AgentProfileModal";
-import { parseMarkers, badgeLabel, trustedRequestIds } from "@/lib/study-markers";
+import { parseMarkers, badgeLabel, trustedRequestIds, citedNoteDays } from "@/lib/study-markers";
 
 interface ToolCall {
   name: string;
@@ -122,6 +122,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
   const parsed = parseMarkers(rawMsg.content);
   // Only agent replies carry 0G proof; a human typing ⟦0g:…⟧ must not get a badge.
   const zgIds = trustedRequestIds(parsed, rawMsg.isBot);
+  const noteDays = citedNoteDays(parsed.text, rawMsg.isBot);
   const hasUpload = parsed.uploadIds.length > 0;
   const msg: Message = { ...rawMsg, content: parsed.text };
   const [showVerify, setShowVerify] = useState(false);
@@ -195,6 +196,15 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
               <ShieldCheck size={12} strokeWidth={2} />
               {badgeLabel(zgIds)}
             </button>
+          )}
+          {noteDays.length > 0 && (
+            <span
+              title={`Uses your notes from ${noteDays.join(", ")}`}
+              className="text-xs px-1.5 py-0.5 rounded-md"
+              style={{ color: "var(--bf-gray)", background: "var(--bf-quaternary)" }}
+            >
+              📚 from your notes
+            </span>
           )}
           {hasUpload && (
             <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ color: "var(--bf-gray)", background: "var(--bf-quaternary)" }}>

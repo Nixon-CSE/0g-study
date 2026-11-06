@@ -46,3 +46,14 @@ export function badgeLabel(ids: string[]): string {
   if (ids.length === 0) return "";
   return `0G · ${ids[0].slice(0, 8)}…${ids.length > 1 ? ` +${ids.length - 1}` : ""}`;
 }
+
+// Study memory (RAG): the Tutor/Examiner cite past notes as [notes · 2026-11-05 · #2].
+const NOTES_CITATION_RE = /\[notes · (\d{4}-\d{2}-\d{2}) · #\d+\]/g;
+
+/** Days of the student's past notes cited in an agent reply (unique, in order). Only agent replies count. */
+export function citedNoteDays(text: string, isBot: boolean | undefined): string[] {
+  if (!isBot) return [];
+  const days: string[] = [];
+  for (const m of (text ?? "").matchAll(NOTES_CITATION_RE)) if (!days.includes(m[1])) days.push(m[1]);
+  return days;
+}

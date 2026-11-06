@@ -38,3 +38,13 @@ describe("helpers", () => {
     expect(badgeLabel(["0123456789abcdef", "b", "c"])).toBe("0G · 01234567… +2");
   });
 });
+
+describe("citedNoteDays (study memory chip)", () => {
+  it("finds the days of past-notes citations in agent replies only", async () => {
+    const { citedNoteDays } = await import("../study-markers");
+    const t = "Like before [notes · 2026-11-05 · #2] and [notes · 2026-11-05 · #3], see [notes · 2026-11-01 · #1].";
+    expect(citedNoteDays(t, true)).toEqual(["2026-11-05", "2026-11-01"]);
+    expect(citedNoteDays(t, false)).toEqual([]);
+    expect(citedNoteDays("[kb · Syllabus · #1] [notes · yesterday · #1]", true)).toEqual([]);
+  });
+});
