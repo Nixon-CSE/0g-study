@@ -19,6 +19,7 @@ import { startEvolutionLoop } from './evolution/loop.js';
 import { TenantRegistry } from './tenants/registry.js';
 import { log } from './util/logger.js';
 import { purgeOldUploads } from './study/uploads.js';
+import { drainAllPending } from './rag/notes.js';
 import { studyAuthEnabled } from './study/auth.js';
 
 async function main() {
@@ -99,7 +100,11 @@ async function main() {
   });
 
   // Notes photos are temporary: remove anything older than 24h now and hourly.
-  const purge = () => purgeOldUploads(loaded.dir).then((n) => n && log.info({ removed: n }, 'purged old uploads')).catch(() => {});
+  // Study memory: notes whose indexing failed (0G embeddings down) are retried at boot and hourly.
+  const purge = () => {
+    purgeOldUploads(loaded.dir).then((n) => n && log.info({ removed: n }, 'purged old uploads')).catch(() => {});
+    drainAllPending(loaded.dir).catch(() => {});
+  };
   void purge();
   const purgeTimer = setInterval(purge, 60 * 60 * 1000);
   purgeTimer.unref();

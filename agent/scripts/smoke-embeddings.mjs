@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 // RAG phase 0: smoke-test 0G Private Computer embeddings (router API).
 //   node scripts/smoke-embeddings.mjs [model ...]
+//   node scripts/smoke-embeddings.mjs --quick [model]   one call to the configured model (ZEROG_EMBED_MODEL);
+//       prints "0G embeddings up" / "0G embeddings down" and exits 0 (up), 2 (down: network, 429, 5xx), 1 (other).
+//       run-tests.sh runs this before the live E2E.
 // Reads ZEROG_API_KEY (+ optional ZEROG_BASE_URL) from agent/.env. Never prints the key.
 // For each model it checks: a single input, a batch (input: string[]), the vector dimension,
 // the request-id headers, latency, a long input (max length), whether chat_template_kwargs is
@@ -10,7 +13,9 @@ import 'dotenv/config';
 const base = (process.env.ZEROG_BASE_URL || 'https://router-api.0g.ai/v1').replace(/\/$/, '');
 const key = process.env.ZEROG_API_KEY;
 if (!key) { console.error('ZEROG_API_KEY is not set (agent/.env)'); process.exit(1); }
-const models = process.argv.slice(2).length ? process.argv.slice(2) : ['qwen3-embedding-0.6b', 'qwen3-embedding-8b'];
+const QUICK = process.argv.includes('--quick');
+const args = process.argv.slice(2).filter((a) => a !== '--quick');
+const models = args.length ? args : QUICK ? [process.env.ZEROG_EMBED_MODEL || 'qwen3-embedding-0.6b'] : ['qwen3-embedding-0.6b', 'qwen3-embedding-8b'];
 const auth = { authorization: `Bearer ${key}`, 'content-type': 'application/json' };
 
 async function embed(model, input, extra = {}, attempts = 3) {
@@ -50,6 +55,20 @@ const QUERIES = [
 ];
 
 const results = {};
+if (QUICK) {
+  const model = models[0];
+  let status = 0, detail = '';
+  try {
+    const res = await fetch(`${base}/embeddings`, { method: 'POST', headers: auth, body: JSON.stringify({ model, input: 'hello world' }), signal: AbortSignal.timeout(30_000) });
+    status = res.status;
+    detail = res.ok ? '' : (await res.text()).slice(0, 200);
+  } catch (e) { detail = String(e?.cause?.code ?? e?.name ?? e); }
+  if (status === 200) { console.log(`0G embeddings up (${model})`); process.exit(0); }
+  const down = status === 0 || status === 429 || status >= 500;
+  console.log(`0G embeddings ${down ? 'down' : 'error'} (${model}): ${status ? `HTTP ${status}` : 'network'} ${detail}`);
+  process.exit(down ? 2 : 1);
+}
+
 for (const model of models) {
   console.log(`\n== ${model}`);
   const r = { model };

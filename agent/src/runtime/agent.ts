@@ -13,6 +13,7 @@ import { log } from '../util/logger.js';
 import type { InboundMessage, TenantPayload } from '../channels/base.js';
 import type { EmbeddingModel } from 'ai';
 import { embedText } from '../memory/embeddings.js';
+import { attachFlashcards } from '../study/flashcards.js';
 import type { TenantRegistry } from '../tenants/registry.js';
 import type { Tenant } from '../tenants/types.js';
 
@@ -48,6 +49,14 @@ export function joinStepText(result: { text: string; steps?: { text: string }[] 
   const parts = (result.steps ?? []).map((s) => s.text?.trim()).filter(Boolean) as string[];
   return parts.length > 1 ? parts.join('\n\n') : result.text;
 }
+
+/**
+ * Tenants whose turn must end with flashcards saved by `study_log`. If the model skipped it (or it
+ * failed), one follow-up generation forces the tool, built from the same notes and the reply just written.
+ */
+export const FORCE_STUDY_LOG_TENANTS: ReadonlySet<string> = new Set(['study-tutor']);
+export const FORCE_STUDY_LOG_PROMPT =
+  'Now save 6 flashcards (Q/A) that test understanding of these notes and of your explanation above, by calling `study_log` once with the topic and the cards. Do not write anything else.';
 
 export interface RuntimeDeps {
   loaded: LoadedAgent;
@@ -184,6 +193,7 @@ export class AgentRuntime {
     let failure: unknown = null;
     let usageTokens = 0;
     const reqCtx: RequestContext = { studentId: msg.studentId, calls: [] };
+    if (msg.studentId && msg.excludeUploadIds?.length) reqCtx.excludeUploadIds = msg.excludeUploadIds;
     // FR9: a student who connected their own 0G account pays for their own calls (and skips the shared cap).
     const ownKeys = msg.studentId ? await loadUserKeys(this.d.loaded.dir, msg.studentId) : null;
     if (ownKeys) reqCtx.zerogApiKey = ownKeys.apiKey;
@@ -222,8 +232,29 @@ export class AgentRuntime {
       }
     }
 
+    if (final && !reqCtx.flashcards && msg.studentId && tenant?.slug && FORCE_STUDY_LOG_TENANTS.has(tenant.slug)) {
+      const studyLog = this.d.getTools().study_log;
+      if (studyLog) {
+        try {
+          // Only the tool call matters (it records the cards in reqCtx); the follow-up's text is discarded.
+          await runWithContext(reqCtx, () => generateText({
+            ...baseArgs,
+            messages: [...messages, { role: 'assistant', content: final! }, { role: 'user', content: FORCE_STUDY_LOG_PROMPT }],
+            tools: { study_log: studyLog },
+            toolChoice: { type: 'tool', toolName: 'study_log' },
+            maxSteps: 1,
+          }));
+        } catch (e: any) {
+          log.warn({ err: String(e?.message ?? e).slice(0, 200) }, 'forced study_log follow-up failed');
+        }
+      }
+    }
+
     if (!final) {
       final = failureLine(failure);
+    } else {
+      // Cards saved by study_log go into the reply text (before the hand-off line), by code.
+      final = attachFlashcards(final, reqCtx.flashcards);
     }
     // 0G Private Computer proof: attach request ids (UI strips this marker and renders a badge).
     final += formatRequestIdMarker(reqCtx.calls.map((c) => c.requestId));

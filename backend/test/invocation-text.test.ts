@@ -120,4 +120,13 @@ describe('pipeline hand-offs (Study Pod, FR5)', () => {
     expect(out).toContain('[[upload:0f8fad5b-d9cb-469f-a165-70867728950e]]');
     expect(out).toContain('"@study-tutor"');
   });
+  it('every pod stage is told to talk only to the student (no hand-off / pipeline narration); other agents are not', () => {
+    for (const target of [tutor, examiner, { ...targetAgent, _id: new ObjectId(), slug: 'study-note-reader' }]) {
+      const out = prepareInvocationText({ parent: readerReply, target, channel, peerSlugs: podPeers, speakerLabel: '@study-note-reader', speakerIsHuman: false });
+      expect(out).toContain('[STUDENT-FACING]');
+      expect(out.endsWith(readerReply.content)).toBe(true);
+    }
+    const other = prepareInvocationText({ parent: readerReply, target: targetAgent, channel, peerSlugs: podPeers, speakerLabel: '@study-note-reader', speakerIsHuman: false });
+    expect(other).not.toContain('[STUDENT-FACING]');
+  });
 });

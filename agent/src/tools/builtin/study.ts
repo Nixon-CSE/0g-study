@@ -70,7 +70,11 @@ export function makeStudyTools(agentDir: string) {
       const studentId = currentContext()?.studentId;
       if (!studentId) return { ok: false, error: 'no student identified for this turn; flashcards not saved' };
       try {
-        return { ok: true, ...(await logStudySet(agentDir, studentId, { topic, cards })) };
+        const saved = await logStudySet(agentDir, studentId, { topic, cards });
+        // Flashcards travel with the reply (attached by the runtime), so the Examiner always sees them.
+        const ctx = currentContext();
+        if (ctx) ctx.flashcards = cards.map(({ q, a }) => ({ q, a }));
+        return { ok: true, ...saved };
       } catch (e: any) {
         return { ok: false, error: String(e?.message ?? e) };
       }
@@ -79,7 +83,7 @@ export function makeStudyTools(agentDir: string) {
 
   const recall_notes = tool({
     description:
-      "Search this student's own past study notes (earlier days' photos) for passages related to a query. Returns passages with citations like [notes · 2026-11-05 · #2]. Only cite passages it returns.",
+      "Search this student's own earlier study notes (photos from before this message) for passages related to a query. Never returns the notes being studied right now. Returns passages with citations like [notes · 2026-11-05 · #2]. Only cite passages it returns; on no hits, say nothing about earlier notes.",
     parameters: z.object({
       query: z.string().min(1).max(500),
       k: z.number().int().min(1).max(8).optional(),
@@ -88,8 +92,9 @@ export function makeStudyTools(agentDir: string) {
       const studentId = currentContext()?.studentId;
       if (!studentId) return { ok: false, error: 'no student identified for this turn; past notes are not available' };
       try {
-        const { hits } = await recallNotes(agentDir, studentId, query, { k: k ?? 4 });
-        if (hits.length === 0) return { ok: true, found: 0, note: 'no related past notes; continue normally without citing any' };
+        const excludeUploadIds = currentContext()?.excludeUploadIds;
+        const { hits } = await recallNotes(agentDir, studentId, query, { k: k ?? 4, excludeUploadIds });
+        if (hits.length === 0) return { ok: true, found: 0, note: 'no related earlier notes; continue normally and do not mention earlier notes' };
         return {
           ok: true,
           found: hits.length,
@@ -98,7 +103,7 @@ export function makeStudyTools(agentDir: string) {
         };
       } catch (e: any) {
         log.warn({ err: e?.name, kind: e?.kind, status: e?.status }, 'study memory: recall failed');
-        return { ok: false, error: "couldn't search past notes right now (0G embeddings unavailable); continue without them and don't cite any" };
+        return { ok: false, error: "couldn't search past notes right now (0G embeddings unavailable); continue without them, don't cite any and don't mention it" };
       }
     },
   });

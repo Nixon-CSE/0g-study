@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { embedTexts, EmbeddingError, planBatches, embedModelName } from '../src/rag/embed.js';
+import { embedTexts, EmbeddingError, planBatches, embedModelName, parseRetryAfter, backoffMs, isRetryable } from '../src/rag/embed.js';
 import { runWithContext, type RequestContext } from '../src/runtime/request-context.js';
 import { resetRouterTrace, usageToday, callsTodayFor } from '../src/providers/zerog-router.js';
 import { fake0G } from './helpers/fake-0g.js';
@@ -97,5 +97,79 @@ describe('embedTexts → 0G /v1/embeddings', () => {
     const f = vi.fn(); vi.stubGlobal('fetch', f);
     expect((await embedTexts([])).vectors).toEqual([]);
     expect(f).not.toHaveBeenCalled();
+  });
+});
+
+describe('embedTexts retries transient failures', () => {
+  /** A router that fails with the given statuses (or 'net' for a network error) and then succeeds. */
+  function flaky(script: (number | 'net')[], headers: Record<string, string> = {}) {
+    const f = fake0G();
+    let n = 0;
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      const step = script[n++];
+      if (step === undefined) return f.fetchImpl(url, init);
+      if (step === 'net') throw new TypeError('fetch failed');
+      return new Response('{"error":"upstream"}', { status: step, headers: { 'x-request-id': `gw, 00000000-0000-4000-8000-00000000000${n}`, ...headers } });
+    });
+    vi.stubGlobal('fetch', fetchImpl);
+    return fetchImpl;
+  }
+  const waits: number[] = [];
+  const retry = { baseMs: 1000, sleep: async (ms: number) => { waits.push(ms); }, random: () => 0.5 };
+  beforeEach(() => { waits.length = 0; });
+
+  it('502, 503 then 200: succeeds on the 3rd attempt with exponential backoff; every attempt is traced and counted', async () => {
+    const f = flaky([502, 503]);
+    const ctx: RequestContext = { studentId: 'alice', calls: [] };
+    const r = await runWithContext(ctx, () => embedTexts(['x y z'], { retry }));
+    expect(r.vectors).toHaveLength(1);
+    expect(f).toHaveBeenCalledTimes(3);
+    expect(waits).toEqual([1000, 2000]);
+    expect(ctx.calls.map((c) => c.status)).toEqual([502, 503, 200]);
+    expect(r.requestIds).toHaveLength(3);
+    expect(callsTodayFor('alice')).toBe(3);
+  });
+
+  it('network error and 429 are retried; gives up after 3 attempts with the last error', async () => {
+    flaky(['net', 429, 500]);
+    await expect(embedTexts(['x'], { retry })).rejects.toMatchObject({ kind: 'http', status: 500 });
+    expect(waits).toHaveLength(2);
+  });
+
+  it('never retries other 4xx', async () => {
+    const f = flaky([401]);
+    await expect(embedTexts(['x'], { retry })).rejects.toMatchObject({ kind: 'http', status: 401 });
+    expect(f).toHaveBeenCalledTimes(1);
+    flaky([400]);
+    await expect(embedTexts(['x'], { retry })).rejects.toMatchObject({ status: 400 });
+    expect(waits).toEqual([]);
+  });
+
+  it('honours Retry-After, but not beyond the ~6 s budget', async () => {
+    flaky([429], { 'retry-after': '2' });
+    await embedTexts(['x'], { retry });
+    expect(waits).toEqual([2000]);
+    waits.length = 0;
+    const f = flaky([503, 503], { 'retry-after': '30' });
+    await expect(embedTexts(['x'], { retry })).rejects.toMatchObject({ status: 503 });
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(waits).toEqual([]);
+  });
+
+  it('total waiting stays within maxTotalWaitMs with the default policy', () => {
+    const p = { baseMs: 1000, random: () => 1 };
+    expect(backoffMs(1, p, null) + backoffMs(2, p, null)).toBeLessThanOrEqual(6000);
+    expect(backoffMs(1, { baseMs: 1000, random: () => 0 }, null)).toBe(750);
+  });
+
+  it('parses Retry-After as seconds or an HTTP date; classifies retryable errors', () => {
+    expect(parseRetryAfter('3')).toBe(3000);
+    expect(parseRetryAfter(new Date(10_000).toUTCString(), 4_000)).toBe(6000);
+    expect(parseRetryAfter('soon')).toBeNull();
+    expect(parseRetryAfter(null)).toBeNull();
+    expect(isRetryable(new EmbeddingError('x', 'http', 502))).toBe(true);
+    expect(isRetryable(new EmbeddingError('x', 'http', 404))).toBe(false);
+    expect(isRetryable(new EmbeddingError('x', 'timeout'))).toBe(false);
+    expect(isRetryable(new EmbeddingError('x', 'bad-response'))).toBe(false);
   });
 });
