@@ -51,7 +51,7 @@ const COMPONENTS: Components = {
   code: ({ className, children }) => (
     <code className={`font-mono ${className ?? ""}`} style={{ background: "var(--bf-quaternary)", color: "var(--foreground)", borderRadius: 3, padding: "0 3px" }}>{children}</code>
   ),
-  table: ({ children }) => <div className="overflow-x-auto mb-1.5"><table className="text-xs border-collapse">{children}</table></div>,
+  table: ({ children }) => <div className="overflow-x-auto mb-1.5"><table className="text-xs border-collapse [overflow-wrap:normal]">{children}</table></div>,
   th: ({ children }) => <th className="border px-2 py-1 text-left font-semibold" style={{ borderColor: "var(--bf-border)" }}>{children}</th>,
   td: ({ children }) => <td className="border px-2 py-1" style={{ borderColor: "var(--bf-border)" }}>{children}</td>,
 };

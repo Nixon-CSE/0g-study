@@ -84,7 +84,7 @@ export default function CenterPane() {
 
       {/* Channel header */}
       <header
-        className="flex items-center gap-1 px-4 max-[1199px]:px-2 h-14 max-[1199px]:h-10 border-b flex-shrink-0"
+        className="flex items-center gap-1 px-4 max-[1199px]:px-2 h-14 max-[1199px]:h-11 border-b flex-shrink-0"
         style={{ borderColor: "var(--bf-quinary)" }}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0 max-[1199px]:invisible">
@@ -180,7 +180,7 @@ export default function CenterPane() {
           agents={activeServer.agents}
         />
       ) : (
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-hidden relative">
           {/* Main chat column */}
           <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
             {/* Search bar */}
@@ -219,7 +219,7 @@ export default function CenterPane() {
           {/* Members sidebar */}
           {showMembers && (
             <div
-              className="flex-shrink-0 overflow-y-auto flex flex-col gap-1 py-3 px-2"
+              className="flex-shrink-0 overflow-y-auto flex flex-col gap-1 py-3 px-2 max-[767px]:absolute max-[767px]:inset-y-0 max-[767px]:right-0 max-[767px]:z-20"
               style={{ width: 220, borderLeft: "1px solid var(--bf-quinary)", background: "var(--bf-primary)" }}
             >
               <p className="text-xs font-semibold uppercase tracking-wider px-2 mb-1" style={{ color: "var(--bf-gray)" }}>
@@ -275,7 +275,7 @@ function HeaderBtn({
     <button
       title={title}
       onClick={onClick}
-      className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+      className="w-9 h-9 max-[767px]:w-11 max-[767px]:h-11 flex items-center justify-center rounded-lg transition-colors"
       style={{
         color: active ? "var(--foreground)" : "var(--bf-gray)",
         background: active ? "var(--bf-quinary)" : "transparent",
