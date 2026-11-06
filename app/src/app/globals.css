@@ -166,3 +166,14 @@ input[type="range"].bf-temperature-range:focus-visible::-webkit-slider-thumb {
 input[type="range"].bf-temperature-range:focus-visible::-moz-range-thumb {
   box-shadow: 0 0 0 2px var(--bf-tertiary), 0 0 0 4px var(--bf-plum);
 }
+
+/* The real visible height on phones: 100vh runs under the browser's own bars. */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
+/* Landscape phones: keep content clear of the notch. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+

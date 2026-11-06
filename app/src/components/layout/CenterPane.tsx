@@ -84,10 +84,10 @@ export default function CenterPane() {
 
       {/* Channel header */}
       <header
-        className="flex items-center gap-1 px-4 h-14 border-b flex-shrink-0"
+        className="flex items-center gap-1 px-4 max-[1199px]:px-2 h-14 max-[1199px]:h-10 border-b flex-shrink-0"
         style={{ borderColor: "var(--bf-quinary)" }}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0 max-[1199px]:invisible">
           {activeChannel.tee
             ? <Lock size={20} style={{ color: "var(--bf-fire)", flexShrink: 0 }} strokeWidth={2} />
             : isVoice

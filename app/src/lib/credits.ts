@@ -4,6 +4,8 @@ export function formatCredits(balance0G: number): string {
 }
 
 export const CONNECT_CTA = "Use your daily iAI credits →";
+/** Phones: the status bar has to fit calls and streak too. */
+export const SHORT_CONNECT_CTA = "Use iAI credits →";
 export const API_KEYS_URL = "https://pc.0g.ai/dashboard/api-keys";
 export const MANAGEMENT_KEYS_URL = "https://pc.0g.ai/dashboard/management-keys";
 

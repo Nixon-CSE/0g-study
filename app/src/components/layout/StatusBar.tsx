@@ -184,6 +184,41 @@ function FundPopover({
   );
 }
 
+/** Phones: the network, wallet and OG balance that the status bar has no room for. */
+export function WalletCard() {
+  const { user } = useAuth();
+  const address = user?.walletAddress ?? null;
+  const [balance, setBalance] = useState<string | null>(null);
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    fetchBalance(address).then((b) => { if (!cancelled) setBalance(b); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [address]);
+  return (
+    <div className="px-4 py-3 text-xs border-t flex flex-col gap-1" style={{ borderColor: "var(--bf-quinary)", color: "var(--bf-gray)" }}>
+      <p>0G Galileo Testnet</p>
+      {address ? (
+        <>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard?.writeText(address).catch(() => {})}
+            className="flex items-center gap-1.5 min-h-[44px] text-left"
+            title={`Copy ${address}`}
+          >
+            <span className="font-mono">{shortAddr(address)}</span>
+            <Copy size={12} />
+          </button>
+          <p>{balance === null ? "—" : `${balance} OG`}</p>
+          {balance !== null && parseFloat(balance) === 0 && (
+            <a className="underline py-2" href={FAUCET_URL} target="_blank" rel="noopener noreferrer">Get OG at the 0G faucet</a>
+          )}
+        </>
+      ) : <p>wallet not connected</p>}
+    </div>
+  );
+}
+
 export default function StatusBar() {
   const { user } = useAuth();
   const address = user?.walletAddress ?? null;
@@ -270,7 +305,8 @@ export default function StatusBar() {
   useEffect(() => {
     if (!address) return;
     if (balance === null) return;
-    if (parseFloat(balance) === 0 && !autoOpenedRef.current) {
+    // Not on phones: it would cover the composer, and wallet details live in the drawer there.
+    if (parseFloat(balance) === 0 && !autoOpenedRef.current && window.innerWidth >= 768) {
       autoOpenedRef.current = true;
       setFundOpen(true);
     }
@@ -285,7 +321,8 @@ export default function StatusBar() {
         background: "var(--bf-plum)",
         borderColor: "rgba(0,0,0,0.25)",
         color: "rgba(255,255,255,0.85)",
-        height: 24,
+        height: "calc(24px + env(safe-area-inset-bottom))",
+        paddingBottom: "calc(4px + env(safe-area-inset-bottom))",
         flexShrink: 0,
       }}
     >
@@ -330,13 +367,13 @@ export default function StatusBar() {
                 <Copy size={12} />
               )}
             </button>
-            <span className="hidden min-[520px]:inline flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
+            <span className="hidden min-[768px]:inline flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
             {error ? (
-              <span className="hidden min-[520px]:inline min-w-0 truncate" style={{ color: "var(--bf-banana)" }} title={error}>
+              <span className="hidden min-[768px]:inline min-w-0 truncate" style={{ color: "var(--bf-banana)" }} title={error}>
                 balance unavailable
               </span>
             ) : balance !== null ? (
-              <span className="hidden min-[520px]:flex items-center gap-2 min-w-0">
+              <span className="hidden min-[768px]:flex items-center gap-2 min-w-0">
                 <span className="min-w-0 truncate" title={`Wallet balance: ${balance} OG`}>
                   <span
                     className="font-semibold"
@@ -368,7 +405,7 @@ export default function StatusBar() {
             )}
           </>
         ) : (
-          <span className="min-w-0 truncate" title="wallet not connected" style={{ color: "rgba(255,255,255,0.75)" }}>wallet not connected</span>
+          <span className="hidden min-[768px]:inline min-w-0 truncate" title="wallet not connected" style={{ color: "rgba(255,255,255,0.75)" }}>wallet not connected</span>
         )}
       </div>
     </div>

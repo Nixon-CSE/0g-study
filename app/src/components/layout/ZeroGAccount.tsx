@@ -4,7 +4,7 @@ import Modal from "@/components/shared/Modal";
 import { agentStudyFetch } from "@/lib/agent-study";
 import { POD_REPLY_EVENT, clearSessionIds, sessionIds } from "@/lib/billing-session";
 import {
-  API_KEYS_URL, CONNECT_CTA, MANAGEMENT_KEYS_URL, balanceDetails, balanceName, formatMoney, keyPrefixError, sessionLine, toMicro, untilReset,
+  API_KEYS_URL, CONNECT_CTA, MANAGEMENT_KEYS_URL, SHORT_CONNECT_CTA, balanceDetails, balanceName, formatMoney, keyPrefixError, sessionLine, toMicro, untilReset,
   type AccountBalance, type BilledCall,
 } from "@/lib/credits";
 
@@ -153,7 +153,7 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
           </button>
           {details && balance && (
             <div
-              className="absolute right-0 bottom-full mb-2 w-72 rounded-lg p-3 shadow-2xl z-50 flex flex-col gap-1"
+              className="absolute right-0 bottom-full mb-2 w-72 rounded-lg p-3 shadow-2xl z-50 flex flex-col gap-1 max-[767px]:fixed max-[767px]:inset-x-3 max-[767px]:right-3 max-[767px]:w-auto max-[767px]:bottom-[calc(32px+env(safe-area-inset-bottom))] whitespace-normal"
               style={{ background: "var(--bf-secondary)", border: "1px solid var(--bf-border)", color: "var(--foreground)" }}
             >
               {balanceDetails(balance).map((line) => <p key={line}>{line}</p>)}
@@ -165,7 +165,8 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
         </span>
       ) : (
         <button type="button" onClick={() => setOpen(true)} className="underline cursor-pointer flex-shrink-0" style={{ color: "rgba(255,255,255,0.85)" }}>
-          {CONNECT_CTA}
+          <span className="min-[520px]:hidden">{SHORT_CONNECT_CTA}</span>
+          <span className="hidden min-[520px]:inline">{CONNECT_CTA}</span>
         </button>
       )}
       <span className="hidden min-[520px]:inline flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
