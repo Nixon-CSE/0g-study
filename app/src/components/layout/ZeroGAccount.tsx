@@ -130,22 +130,25 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
   return (
     <>
       {acct.connected ? (
-        <span className="flex items-center gap-1.5 relative">
+        <span className="flex items-center gap-1.5 relative flex-shrink-0">
           <button
             type="button"
             onClick={openDetails}
             className="cursor-pointer tabular-nums"
-            title={acct.error ? `0G balance unavailable: ${acct.error}` : "Your pc.0g.ai balance, which pays for your pod. Click for details."}
+            title={acct.error ? `0G balance unavailable: ${acct.error}` : `Your pc.0g.ai balance, which pays for your pod. Resets in ${untilReset()}. Click for details.`}
             style={{ color: "rgba(255,255,255,0.9)" }}
           >
-            {balance && shown !== null
-              ? `${balanceName(balance)}: ${formatMoney(balance.currency, shown)} · resets in ${untilReset()}`
-              : "0G credits: —"}
+            {balance && shown !== null ? (
+              <>
+                {balanceName(balance)}: {formatMoney(balance.currency, shown)}
+                <span className="hidden min-[1100px]:inline"> · resets in {untilReset()}</span>
+              </>
+            ) : "0G credits: —"}
           </button>
           {balance && drop > 0 && (
-            <span className="tabular-nums" style={{ color: "var(--bf-banana)" }}>−{formatMoney(balance.currency, drop)}</span>
+            <span className="hidden min-[520px]:inline tabular-nums" style={{ color: "var(--bf-banana)" }}>−{formatMoney(balance.currency, drop)}</span>
           )}
-          <button type="button" onClick={disconnect} className="underline cursor-pointer" style={{ color: "rgba(255,255,255,0.55)" }} title="Stop using your 0G account">
+          <button type="button" onClick={disconnect} className="hidden min-[900px]:inline underline cursor-pointer" style={{ color: "rgba(255,255,255,0.55)" }} title="Stop using your 0G account">
             disconnect
           </button>
           {details && balance && (
@@ -156,15 +159,16 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
               {balanceDetails(balance).map((line) => <p key={line}>{line}</p>)}
               <p style={{ color: "var(--bf-gray)" }}>{session ?? "This session: —"}</p>
               <p style={{ color: "var(--bf-gray)" }}>Daily credits refresh at 00:00 UTC, in {untilReset()}.</p>
+              <button type="button" onClick={disconnect} className="underline cursor-pointer self-start" style={{ color: "var(--bf-gray)" }}>Disconnect</button>
             </div>
           )}
         </span>
       ) : (
-        <button type="button" onClick={() => setOpen(true)} className="underline cursor-pointer" style={{ color: "rgba(255,255,255,0.85)" }}>
+        <button type="button" onClick={() => setOpen(true)} className="underline cursor-pointer flex-shrink-0" style={{ color: "rgba(255,255,255,0.85)" }}>
           {CONNECT_CTA}
         </button>
       )}
-      <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
+      <span className="hidden min-[520px]:inline flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
 
       {open && (
         <Modal

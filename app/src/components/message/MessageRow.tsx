@@ -7,6 +7,7 @@ import FlameAvatar from "@/components/shared/FlameAvatar";
 import { useApp } from "@/context/AppContext";
 import AgentProfileModal from "@/components/agent/AgentProfileModal";
 import BillingProof from "@/components/message/BillingProof";
+import MessageBody from "@/components/message/MessageBody";
 import { ZEROG_ACCOUNTS_ENABLED } from "@/components/layout/ZeroGAccount";
 import { parseMarkers, badgeLabel, trustedRequestIds, citedNoteDays, requestIdTooltip } from "@/lib/study-markers";
 
@@ -230,7 +231,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
         </div>
 
         {visibleContent && (
-          <p className="text-sm leading-relaxed mt-0.5" style={{ color: "var(--foreground)" }}>{visibleContent}</p>
+          <MessageBody content={visibleContent} isBot={rawMsg.isBot} />
         )}
 
         {toolContent && <ToolCallThread content={toolContent} />}
