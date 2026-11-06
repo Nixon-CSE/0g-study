@@ -72,7 +72,9 @@ export class TenantRegistry {
       const allSlugs = new Set([...prevSlugs, ...this.cache.keys()]);
       for (const slug of allSlugs) this.notify(slug);
     });
-    return () => { watcher.close(); };
+    // Never let a watcher failure (e.g. EMFILE) crash the runtime; API writes still update the cache.
+    watcher.on('error', (err) => log.warn({ err }, 'tenants watcher error; external-edit reload disabled'));
+    return () => { void watcher.close(); };
   }
 
   all(): Tenant[] {

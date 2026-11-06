@@ -76,7 +76,10 @@ export function watchSkills(agentDir: string, onChange: () => void): () => void 
   const w = chokidar.watch(path.join(agentDir, 'skills'), { ignoreInitial: true, depth: 3 });
   const fire = () => onChange();
   w.on('add', fire).on('change', fire).on('unlink', fire).on('addDir', fire).on('unlinkDir', fire);
-  return () => { w.close(); };
+  // A watcher failure (e.g. EMFILE when the OS runs out of file watches) must never crash the runtime:
+  // skills still load at boot and on install; only hot-reload of hand-edited files is lost.
+  w.on('error', (err) => log.warn({ err }, 'skills watcher error; hot-reload disabled'));
+  return () => { void w.close(); };
 }
 
 export function checkGating(s: SkillRecord): { eligible: boolean; missing: string[] } {
