@@ -22,7 +22,7 @@ const steps = [
 ];
 
 const features = [
-  { title: "Photo → notes", desc: "A 0G vision model transcribes your handwriting or printed pages into clean notes." },
+  { title: "Photo → notes", desc: "A 0G vision model transcribes printed or neat handwritten pages into clean notes." },
   { title: "A pod of three agents", desc: "A Note Reader, a Tutor and an Examiner hand off in one channel, and every hand-off is visible." },
   { title: "Flashcards that stick", desc: "The Tutor writes six cards that test understanding, not wording, and logs them." },
   { title: "Daily streak", desc: "Study a little each day. Your streak and card count live in the status bar." },

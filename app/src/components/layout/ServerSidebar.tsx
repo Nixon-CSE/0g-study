@@ -344,7 +344,7 @@ export default function ServerSidebar() {
                     className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: "var(--bf-fire)", color: "var(--on-ink)", letterSpacing: "0.04em" }}
                   >
-                    TEE
+                    Private
                   </span>
                 </div>
                 <p className="text-xs mt-0.5" style={{ color: "var(--bf-gray)" }}>
@@ -438,7 +438,7 @@ function ChannelRow({ name, type, active, onClick, tee }: { name: string; type: 
             letterSpacing: "0.04em",
           }}
         >
-          TEE
+          Private
         </span>
       )}
     </button>
