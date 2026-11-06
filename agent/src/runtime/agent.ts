@@ -50,6 +50,14 @@ export function joinStepText(result: { text: string; steps?: { text: string }[] 
   return parts.length > 1 ? parts.join('\n\n') : result.text;
 }
 
+/**
+ * Tenants whose turn must end with flashcards saved by `study_log`. If the model skipped it (or it
+ * failed), one follow-up generation forces the tool, built from the same notes and the reply just written.
+ */
+export const FORCE_STUDY_LOG_TENANTS: ReadonlySet<string> = new Set(['study-tutor']);
+export const FORCE_STUDY_LOG_PROMPT =
+  'Now save 6 flashcards (Q/A) that test understanding of these notes and of your explanation above, by calling `study_log` once with the topic and the cards. Do not write anything else.';
+
 export interface RuntimeDeps {
   loaded: LoadedAgent;
   model: LanguageModelV1;
@@ -220,6 +228,24 @@ export class AgentRuntime {
         } catch (e2: any) {
           failure = e2;
           log.error({ err: e2 }, 'agent loop: retry without tools also failed');
+        }
+      }
+    }
+
+    if (final && !reqCtx.flashcards && msg.studentId && tenant?.slug && FORCE_STUDY_LOG_TENANTS.has(tenant.slug)) {
+      const studyLog = this.d.getTools().study_log;
+      if (studyLog) {
+        try {
+          // Only the tool call matters (it records the cards in reqCtx); the follow-up's text is discarded.
+          await runWithContext(reqCtx, () => generateText({
+            ...baseArgs,
+            messages: [...messages, { role: 'assistant', content: final! }, { role: 'user', content: FORCE_STUDY_LOG_PROMPT }],
+            tools: { study_log: studyLog },
+            toolChoice: { type: 'tool', toolName: 'study_log' },
+            maxSteps: 1,
+          }));
+        } catch (e: any) {
+          log.warn({ err: String(e?.message ?? e).slice(0, 200) }, 'forced study_log follow-up failed');
         }
       }
     }
