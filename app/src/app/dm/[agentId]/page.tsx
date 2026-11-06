@@ -1,4 +1,5 @@
 "use client";
+import PhoneBackBar from "@/components/layout/PhoneBackBar";
 import { browserAgentUrl } from "@/lib/config";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
@@ -198,11 +199,14 @@ export default function DmPage() {
 
   return (
     <div className="flex h-full" style={{ background: "var(--bf-tertiary)" }}>
-      <LeftNav />
-      <DmSidebar />
+      <div className="hidden min-[768px]:flex flex-shrink-0">
+        <LeftNav />
+        <DmSidebar />
+      </div>
 
       {/* Chat area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ background: "var(--bf-primary)" }}>
+        <PhoneBackBar title={session?.agentName ?? "Direct message"} />
         {/* Header */}
         <header
           className="flex items-center gap-3 px-4 h-14 border-b flex-shrink-0"

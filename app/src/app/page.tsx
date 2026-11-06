@@ -76,11 +76,11 @@ export default function LandingPage() {
       <div className="mx-auto w-full max-w-md px-4 pb-16">
         {/* Header */}
         <header className="flex items-center justify-between py-5">
-          <Link href="/" className="text-[19px] font-semibold" style={{ letterSpacing: "-0.025em" }}>
+          <Link href="/" className="text-[19px] font-semibold whitespace-nowrap" style={{ letterSpacing: "-0.025em" }}>
             0G Study
           </Link>
-          <nav className="flex items-center gap-1 text-[13px]" style={{ color: "var(--muted)" }}>
-            <a href="#how" className="interactive rounded-full px-3 py-2">How it works</a>
+          <nav className="flex items-center gap-1 text-[13px] whitespace-nowrap" style={{ color: "var(--muted)" }}>
+            <a href="#how" className="interactive rounded-full px-3 py-2 max-[419px]:hidden">How it works</a>
             <a href="#stack" className="interactive rounded-full px-3 py-2">Built on 0G</a>
             <Link href="/marketplace" className="interactive rounded-full px-3 py-2">Marketplace</Link>
           </nav>

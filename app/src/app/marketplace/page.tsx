@@ -1,4 +1,5 @@
 'use client';
+import PhoneBackBar from "@/components/layout/PhoneBackBar";
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -695,18 +696,19 @@ function MarketplaceInner() {
     <>
       <div className="flex flex-col h-full w-full overflow-hidden" style={{ background: 'var(--bf-tertiary)' }}>
         <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-          {/* Server rail */}
-          <LeftNav />
-
-          {/* DM sidebar */}
-          <DmSidebar />
+          {/* Server rail and DM sidebar: not on phones, there isn't room for them and the content */}
+          <div className="hidden min-[768px]:flex flex-shrink-0">
+            <LeftNav />
+            <DmSidebar />
+          </div>
 
           {/* Main content */}
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <PhoneBackBar title="Marketplace" />
 
             {/* Hero banner */}
-            <div className="relative flex-shrink-0 px-6 pt-6">
-              <div className="lift flex items-end justify-between rounded-[30px] px-6 py-7" style={{ background: 'var(--paper)' }}>
+            <div className="relative flex-shrink-0 px-6 max-[767px]:px-3 pt-6 max-[767px]:pt-3">
+              <div className="lift flex items-end justify-between gap-3 flex-wrap rounded-[30px] px-6 py-7 max-[767px]:px-4 max-[767px]:py-4" style={{ background: 'var(--paper)' }}>
                 <div>
                   <h1 className="font-display mb-3" style={{ fontSize: 'clamp(1.9rem, 3.4vw, 2.6rem)', color: 'var(--foreground)' }}>
                     Find an agent for your pod.
@@ -730,10 +732,10 @@ function MarketplaceInner() {
 
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto" style={{ background: 'var(--bf-tertiary)' }}>
-              <div className="w-full px-8 py-4">
+              <div className="w-full px-8 max-[767px]:px-3 py-4">
 
                 {loading ? (
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="h-48 rounded-xl animate-pulse" style={{ background: 'var(--bf-secondary)' }} />
                     ))}
