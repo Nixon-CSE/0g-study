@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 
 interface ModalProps {
   title: string;
@@ -23,20 +25,30 @@ export default function Modal({ title, subtitle, onClose, onConfirm, confirmLabe
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  return (
+  // Portalled to <body>: a drawer's CSS transform would otherwise trap position: fixed inside the drawer.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.7)" }}
       onClick={onClose}
     >
       <div
-        className={`rounded-lg p-6 flex flex-col gap-4 max-w-[95vw] ${
+        className={`relative rounded-lg p-6 flex flex-col gap-4 max-w-[95vw] max-[767px]:w-full max-[767px]:max-w-full max-[767px]:h-full max-[767px]:rounded-none max-[767px]:overflow-y-auto max-[767px]:pt-[calc(24px+env(safe-area-inset-top))] max-[767px]:pb-[calc(24px+env(safe-area-inset-bottom))] ${
           extraWide ? "w-[min(880px,95vw)]" : wide ? "w-[600px]" : "w-[440px]"
         }`}
         style={{ background: "var(--bf-primary)" }}
         onClick={e => e.stopPropagation()}
       >
-        <div>
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="min-[768px]:hidden absolute right-2 top-[calc(8px+env(safe-area-inset-top))] w-11 h-11 flex items-center justify-center rounded-lg z-10"
+          style={{ color: "var(--foreground)" }}
+        >
+          <X size={20} />
+        </button>
+        <div className="max-[767px]:pr-10">
           {steps && (
             <div className="flex gap-1.5 mb-3">
               {Array.from({ length: steps.total }).map((_, i) => (
@@ -76,7 +88,8 @@ export default function Modal({ title, subtitle, onClose, onConfirm, confirmLabe
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

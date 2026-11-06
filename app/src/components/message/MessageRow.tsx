@@ -236,7 +236,7 @@ export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
 
         {toolContent && <ToolCallThread content={toolContent} />}
 
-        {showBilling && <BillingProof ids={zgIds} />}
+        {showBilling && <BillingProof ids={zgIds} onClose={() => setShowBilling(false)} />}
 
         {showVerify && msg.teeHash && (
           <div className="mt-2 rounded-lg p-2.5 text-xs font-mono" style={{ background: "var(--bf-quaternary)", color: "var(--bf-gray)" }}>

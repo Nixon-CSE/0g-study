@@ -62,10 +62,10 @@ const REMARK_PLUGINS: NonNullable<Parameters<typeof ReactMarkdown>[0]["remarkPlu
 function MessageBody({ content, isBot }: { content: string; isBot?: boolean }) {
   const plain = !isBot || content.length > MAX_MARKDOWN_CHARS;
   if (plain) {
-    return <p className="text-sm leading-relaxed mt-0.5 break-words" style={{ color: "var(--foreground)" }}>{content}</p>;
+    return <p className="text-sm leading-relaxed mt-0.5 [overflow-wrap:anywhere]" style={{ color: "var(--foreground)" }}>{content}</p>;
   }
   return (
-    <div className="text-sm leading-relaxed mt-0.5 break-words min-w-0" style={{ color: "var(--foreground)" }}>
+    <div className="text-sm leading-relaxed mt-0.5 [overflow-wrap:anywhere] min-w-0" style={{ color: "var(--foreground)" }}>
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={COMPONENTS} urlTransform={(u) => u}>{content}</ReactMarkdown>
     </div>
   );
