@@ -68,7 +68,7 @@ async function main() {
     );
   }
 
-  const corsExtra = env.CORS_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean);
+  const corsExtra = env.CORS_ORIGINS?.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
 
   // Wire Daily.co voice manager when DAILY_API_KEY is present.
   let voiceManager: VoiceManager | undefined;
