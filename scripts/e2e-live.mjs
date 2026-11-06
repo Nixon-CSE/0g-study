@@ -221,6 +221,23 @@ await test('public agent MCP listings never expose env values', async () => {
   }
 });
 
+// ── embeddings status ────────────────────────────────────────────────────────
+// run-tests.sh runs `smoke-embeddings.mjs --quick` and passes E2E_EMBEDDINGS=up|down. Run directly, this
+// script makes the same single probe. Tests that need study memory are skipped when embeddings are down.
+let EMBEDDINGS = process.env.E2E_EMBEDDINGS || null;
+if (!OFFLINE && !EMBEDDINGS) {
+  try {
+    const r = await fetch(`${agentEnv.ZEROG_BASE_URL || 'https://router-api.0g.ai/v1'}/embeddings`, {
+      method: 'POST', headers: { authorization: `Bearer ${agentEnv.ZEROG_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: agentEnv.ZEROG_EMBED_MODEL || 'qwen3-embedding-0.6b', input: 'hello world' }), signal: AbortSignal.timeout(30000),
+    });
+    EMBEDDINGS = r.ok ? 'up' : 'down';
+    await r.body?.cancel();
+  } catch { EMBEDDINGS = 'down'; }
+}
+const embDown = EMBEDDINGS === 'down' ? '0G embeddings down' : undefined;
+if (embDown) console.log(`\n${C.y('○ 0G embeddings down: study-memory tests are skipped')}`);
+
 // ── 5. real 0G inference ─────────────────────────────────────────────────────
 group('5. Real 0G Private Computer calls (spends a few credits)');
 const off = OFFLINE ? '--offline' : undefined;
@@ -299,7 +316,7 @@ async function readPhotoAs(student, photo) {
   eq(up.status, 200, 'upload');
   return chatAgent({ userId: `e2e-rag-${Date.now()}`, studentId: student, tenant: 'study-note-reader', text: `@study-note-reader [[upload:${up.json.id}]]` }, 180000);
 }
-const ragSkip = off ?? (podReady ? undefined : 'pod tenants not registered — run ./run-local.sh seed <you> first');
+const ragSkip = off ?? embDown ?? (podReady ? undefined : 'pod tenants not registered — run ./run-local.sh seed <you> first');
 await test('two different notes photos are read and remembered for the same student', async () => {
   const bio = await readPhotoAs(ragStudent, PHOTO);
   assert(/photosynthesis|calvin|rubisco/i.test(bio), `biology notes not read: ${bio.slice(0, 200)}`);
@@ -405,13 +422,13 @@ if (!p2Skip) {
 const by = (list, slug) => (list ?? []).find((x) => x.slug === slug)?.reply ?? '';
 const allReplies = (r) => [...(r.single ?? []), ...(r.photo1 ?? []), ...(r.photo2 ?? []), ...(r.question ?? [])];
 /** A check over every run: passes only if `fn` returns true for all of them; the message carries the pass rate. */
-async function everyRun(name, fn) {
+async function everyRun(name, fn, { skip } = {}) {
   await test(name, async () => {
     const bad = [];
     for (const r of runs) { let why = null; try { why = r.errors.length ? r.errors[0] : fn(r); } catch (e) { why = e.message; } if (why) bad.push(`run ${r.i + 1}: ${why}`); }
     console.log(`      pass rate ${runs.length - bad.length}/${runs.length}`);
     assert(bad.length === 0, bad.join(' | ').slice(0, 900));
-  }, { skip: p2Skip });
+  }, { skip: p2Skip ?? skip });
 }
 await everyRun('the Tutor reply carries ≥ 4 Q/A flashcards, then one @study-examiner hand-off', (r) => {
   for (const t of [by(r.single, 'study-tutor'), by(r.photo2, 'study-tutor')]) {
@@ -445,7 +462,7 @@ await everyRun('two-photo session: the question about photo 1 is answered from i
   if (!NOTES_CITE_RE.test(t)) return `no citation: ${t.slice(0, 200)}`;
   if (!/rubisco|calvin|photosynth|chloroplast|thylakoid|nadph/i.test(t)) return 'answer is not about the photosynthesis notes';
   return null;
-});
+}, { skip: embDown });
 await everyRun('every reply ends with a ⟦0g:…⟧ marker', (r) => {
   for (const { slug, reply } of allReplies(r)) if (!MARKER_RE.test(reply)) return `${slug}: ${JSON.stringify(reply.slice(-80))}`;
   return null;

@@ -35,7 +35,14 @@ if [[ -z "$QUICK" ]]; then
   [[ -x "$ROOT/contracts/node_modules/.bin/hardhat" ]] && step "contracts tests" contracts ./node_modules/.bin/hardhat test
 fi
 if curl -sf -m 3 http://localhost:7777/health >/dev/null && curl -sf -m 3 http://localhost:8080/health >/dev/null; then
-  step "live e2e" . agent/node_modules/.bin/tsx scripts/e2e-live.mjs $OFFLINE
+  # Embeddings smoke check first: study-memory tests are skipped ("0G embeddings down") instead of failing.
+  EMB=""
+  if [[ -z "$OFFLINE" ]]; then
+    if (cd "$ROOT/agent" && node scripts/smoke-embeddings.mjs --quick) >"$LOGS/test-embeddings_smoke.log" 2>&1; then EMB=up; else EMB=down; fi
+    printf "  embeddings smoke: %s\n" "$(tail -1 "$LOGS/test-embeddings_smoke.log" | cut -c1-160)"
+    echo "INFO  embeddings smoke  $(tail -1 "$LOGS/test-embeddings_smoke.log" | cut -c1-160)" >> "$SUMMARY"
+  fi
+  step "live e2e" . env E2E_EMBEDDINGS="$EMB" agent/node_modules/.bin/tsx scripts/e2e-live.mjs $OFFLINE
   [[ -f "$LOGS/test-live_e2e.log" ]] && sed 's/\x1b\[[0-9;]*m//g' "$LOGS/test-live_e2e.log" | grep -E "✓|✗|○|Live E2E" | sed 's/^/    /'
 else
   echo "SKIP  live e2e  (start the stack with ./run-local.sh)" >> "$SUMMARY"
