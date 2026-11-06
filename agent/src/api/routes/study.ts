@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { usageToday } from '../../providers/zerog-router.js';
 import { isSafeId, studyStats } from '../../study/store.js';
-import { saveUpload } from '../../study/uploads.js';
+import { checkUpload, saveUpload } from '../../study/uploads.js';
 import { studyAuth, takeUploadSlot } from '../../study/auth.js';
 import { accountsEnabled, deleteUserKeys, fetchBalance, loadUserKeys, saveUserKeys, validKeys } from '../../study/zerog-account.js';
 
@@ -22,8 +22,11 @@ export function studyRoutes(agentDir: string, deps: { balance?: typeof fetchBala
 
   app.post('/uploads', async (c) => {
     const user = c.get('studyUser') ?? 'anonymous';
-    if (!takeUploadSlot(user)) return c.json({ error: 'daily upload limit reached — try again tomorrow' }, 429);
     const { dataUrl } = await c.req.json().catch(() => ({}));
+    // Validate first so rejected uploads do not burn the student's daily quota.
+    const bad = checkUpload(dataUrl);
+    if (bad) return c.json({ error: bad.error }, bad.status);
+    if (!takeUploadSlot(user)) return c.json({ error: 'daily upload limit reached — try again tomorrow' }, 429);
     const r = await saveUpload(agentDir, dataUrl);
     return r.ok ? c.json({ id: r.id }) : c.json({ error: r.error }, r.status);
   });

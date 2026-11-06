@@ -12,6 +12,7 @@ import { tenantsRoutes } from './routes/tenants.js';
 import { sessionsRoutes } from './routes/sessions.js';
 import { statusRoutes } from './routes/status.js';
 import { studyRoutes } from './routes/study.js';
+import { adminAuth } from './admin-auth.js';
 import type { EventEmitter } from 'node:events';
 import type { WebChatAdapter } from '../channels/web.js';
 import type { AgentConfig } from '../config/schema.js';
@@ -35,7 +36,8 @@ export interface ApiDeps {
   memoryStats: () => { sessions: number; messages: number; vectors: number };
 }
 
-export function startApi(port: number, d: ApiDeps) {
+/** Builds the HTTP app (exported so tests exercise the real route + middleware wiring). */
+export function buildApi(d: ApiDeps) {
   const app = new Hono();
   app.use('*', cors({
     origin: (o) => o ?? '*',
@@ -44,6 +46,7 @@ export function startApi(port: number, d: ApiDeps) {
     credentials: false,
     maxAge: 86400,
   }));
+  app.use('*', adminAuth);
   app.route('/', healthRoutes());
   app.route('/', skillsRoutes({ agentDir: d.agentDir, evolutionMode: d.evolutionMode, listSkills: d.listSkills, reload: d.reload }));
   app.route('/', mcpRoutes({ agentDir: d.agentDir, restartMcp: d.restartMcp }));
@@ -60,5 +63,10 @@ export function startApi(port: number, d: ApiDeps) {
     evolutionMode: d.evolutionMode,
     memoryStats: d.memoryStats,
   }));
+  return app;
+}
+
+export function startApi(port: number, d: ApiDeps) {
+  const app = buildApi(d);
   return serve({ fetch: app.fetch, port });
 }

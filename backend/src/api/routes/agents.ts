@@ -11,6 +11,7 @@ import {
   listPublicAgents, deleteAgent, publicAgent, rotateAgentKey,
 } from '../../agents/registry.js';
 import { collections } from '../../db/types.js';
+import { agentFetch, maskMcpServers } from '../../agents/admin-token.js';
 import type { AgentDoc, MintReservationDoc, UserDoc } from '../../db/types.js';
 
 /**
@@ -124,8 +125,8 @@ export function agentRoutes(deps: AgentRouteDeps) {
     if (!a) return c.json({ error: 'not_found' }, 404);
     try {
       const [cfgRes, tenantRes] = await Promise.allSettled([
-        fetch(`${a.baseUrl}/config`).then(r => r.json() as Promise<Record<string, unknown>>),
-        fetch(`${a.baseUrl}/tenants/${a.slug}`).then(r => r.json() as Promise<Record<string, unknown>>),
+        agentFetch(`${a.baseUrl}/config`).then(r => r.json() as Promise<Record<string, unknown>>),
+        agentFetch(`${a.baseUrl}/tenants/${a.slug}`).then(r => r.json() as Promise<Record<string, unknown>>),
       ]);
       const cfg = cfgRes.status === 'fulfilled' ? cfgRes.value : {};
       const tenantData = tenantRes.status === 'fulfilled' ? tenantRes.value : {};
@@ -208,7 +209,7 @@ export function agentRoutes(deps: AgentRouteDeps) {
         };
         if (parsed.data.env) tenantBody.env = parsed.data.env;
         if (parsed.data.llm) tenantBody.llm = parsed.data.llm;
-        const tenantRes = await fetch(`${parsed.data.baseUrl}/tenants`, {
+        const tenantRes = await agentFetch(`${parsed.data.baseUrl}/tenants`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(tenantBody),
@@ -257,7 +258,7 @@ export function agentRoutes(deps: AgentRouteDeps) {
       if (parsed.data.env !== undefined) tenantPatch.env = parsed.data.env;
       if (parsed.data.llm !== undefined) tenantPatch.llm = parsed.data.llm;
       try {
-        const tenantRes = await fetch(`${baseUrl}/tenants/${a.slug}`, {
+        const tenantRes = await agentFetch(`${baseUrl}/tenants/${a.slug}`, {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(tenantPatch),
@@ -339,7 +340,7 @@ export function agentRoutes(deps: AgentRouteDeps) {
   // ---------------------------------------------------------------------------
 
   async function proxySkills(baseUrl: string, path: string, init?: RequestInit) {
-    const res = await fetch(`${baseUrl}${path}`, init);
+    const res = await agentFetch(`${baseUrl}${path}`, init);
     const text = await res.text();
     let body: unknown = text;
     try { body = JSON.parse(text); } catch { /* keep raw */ }
@@ -412,7 +413,7 @@ export function agentRoutes(deps: AgentRouteDeps) {
   // ---------------------------------------------------------------------------
 
   async function proxyMcp(baseUrl: string, path: string, init?: RequestInit) {
-    const res = await fetch(`${baseUrl}${path}`, init);
+    const res = await agentFetch(`${baseUrl}${path}`, init);
     const text = await res.text();
     let body: unknown = text;
     try { body = JSON.parse(text); } catch { /* keep raw */ }
@@ -424,7 +425,7 @@ export function agentRoutes(deps: AgentRouteDeps) {
     if (!a) return c.json({ error: 'not_found' }, 404);
     try {
       const r = await proxyMcp(a.baseUrl, '/mcp/servers');
-      return c.json(r.body as any, r.status as any);
+      return c.json(maskMcpServers(r.body) as any, r.status as any);
     } catch (e: any) {
       return c.json({ error: 'agent_unreachable', message: e?.message ?? String(e) }, 502);
     }

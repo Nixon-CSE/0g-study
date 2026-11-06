@@ -20,6 +20,17 @@ function userDir(agentDir: string, userId: string): string {
   return path.join(agentDir, 'study', userId);
 }
 
+/** Per-file write queue: logStudySet is read-modify-write, so concurrent calls must not interleave. */
+const fileLocks = new Map<string, Promise<unknown>>();
+function withFileLock<T>(file: string, fn: () => Promise<T>): Promise<T> {
+  const prev = fileLocks.get(file) ?? Promise.resolve();
+  const run = prev.then(fn, fn);
+  const tail = run.catch(() => {});
+  fileLocks.set(file, tail);
+  tail.then(() => { if (fileLocks.get(file) === tail) fileLocks.delete(file); });
+  return run;
+}
+
 /** Append a study set to study/<userId>/<YYYY-MM-DD>.json (UTC day). */
 export async function logStudySet(
   agentDir: string, userId: string, set: StudySet, now: Date = new Date(),
@@ -28,11 +39,19 @@ export async function logStudySet(
   await fs.mkdir(dir, { recursive: true });
   const day = dayKey(now);
   const file = path.join(dir, `${day}.json`);
-  let cur: StudySet[] = [];
-  try { cur = JSON.parse(await fs.readFile(file, 'utf8')); } catch { /* new day or corrupt: start fresh */ }
-  cur.push(set);
-  await fs.writeFile(file, JSON.stringify(cur, null, 2));
-  return { day, savedCards: set.cards.length };
+  return withFileLock(file, async () => {
+    let cur: StudySet[] = [];
+    try {
+      const parsed = JSON.parse(await fs.readFile(file, 'utf8'));
+      if (Array.isArray(parsed)) cur = parsed;
+    } catch { /* new day or corrupt: start fresh */ }
+    cur.push(set);
+    // Write-then-rename so a crash mid-write never leaves a truncated day file.
+    const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(cur, null, 2));
+    await fs.rename(tmp, file);
+    return { day, savedCards: set.cards.length };
+  });
 }
 
 /**

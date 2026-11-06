@@ -6,7 +6,7 @@ import Avatar from "@/components/shared/Avatar";
 import FlameAvatar from "@/components/shared/FlameAvatar";
 import { useApp } from "@/context/AppContext";
 import AgentProfileModal from "@/components/agent/AgentProfileModal";
-import { parseMarkers, badgeLabel } from "@/lib/study-markers";
+import { parseMarkers, badgeLabel, trustedRequestIds } from "@/lib/study-markers";
 
 interface ToolCall {
   name: string;
@@ -120,7 +120,8 @@ function hasToolCalls(content: string): boolean {
 
 export default function MessageRow({ msg: rawMsg }: { msg: Message }) {
   const parsed = parseMarkers(rawMsg.content);
-  const zgIds = parsed.requestIds;
+  // Only agent replies carry 0G proof; a human typing ⟦0g:…⟧ must not get a badge.
+  const zgIds = trustedRequestIds(parsed, rawMsg.isBot);
   const hasUpload = parsed.uploadIds.length > 0;
   const msg: Message = { ...rawMsg, content: parsed.text };
   const [showVerify, setShowVerify] = useState(false);

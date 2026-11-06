@@ -25,6 +25,7 @@ import { collections } from '../src/db/types.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const examples = path.resolve(here, '../../agent/examples');
 const AGENT_BASE_URL = (process.env.EMBER_AGENT_BASE_URL || 'http://localhost:7777').replace(/\/$/, '');
+const ADMIN = process.env.AGENT_ADMIN_TOKEN ? { 'x-agent-admin-token': process.env.AGENT_ADMIN_TOKEN } : {};
 
 const POD = [
   { slug: 'study-note-reader', dir: 'study-note-reader', name: 'Note Reader', description: 'Reads a photo of your notes with 0G vision and turns it into clean notes plus key concepts.', tags: ['study', 'vision'] },
@@ -51,13 +52,13 @@ async function upsertTenant(p) {
     soul: read('SOUL.md'), agents: read('AGENTS.md'), llm: { provider: 'zerog-router' },
   };
   const post = await fetch(`${AGENT_BASE_URL}/tenants`, {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    method: 'POST', headers: { 'content-type': 'application/json', ...ADMIN }, body: JSON.stringify(body),
   });
   if (post.ok) return 'created';
   if (post.status !== 409) throw new Error(`POST /tenants ${p.slug}: HTTP ${post.status} ${await post.text()}`);
   const { slug: _s, ...patch } = body;
   const res = await fetch(`${AGENT_BASE_URL}/tenants/${p.slug}`, {
-    method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch),
+    method: 'PATCH', headers: { 'content-type': 'application/json', ...ADMIN }, body: JSON.stringify(patch),
   });
   if (!res.ok) throw new Error(`PATCH /tenants/${p.slug}: HTTP ${res.status} ${await res.text()}`);
   return 'updated';
@@ -67,10 +68,20 @@ const client = new MongoClient(process.env.MONGODB_URI);
 await client.connect();
 const db = client.db(process.env.MONGODB_DB ?? 'bonfire');
 try {
-  const owner = await db.collection(collections.users).findOne({
-    $or: [{ username: ownerIdent.toLowerCase() }, { email: ownerIdent.toLowerCase() }],
-  });
-  if (!owner) throw new Error(`no user "${ownerIdent}" — sign in once through the app first`);
+  const users = db.collection(collections.users);
+  const humans = await users.find({ isService: { $ne: true } }, { projection: { username: 1, email: 1, privyDid: 1 } }).toArray();
+  let owner = ownerIdent === 'auto'
+    ? (humans.length === 1 ? humans[0] : null)
+    : await users.findOne({ $or: [{ username: ownerIdent.toLowerCase() }, { email: ownerIdent.toLowerCase() }] });
+  if (!owner) {
+    if (humans.length === 0) {
+      throw new Error('nobody has signed in yet — open http://localhost:3000, sign in, then run the seed again');
+    }
+    console.error(`no user "${ownerIdent}". Signed-in users:`);
+    for (const u of humans) console.error(`  username: ${u.username}   email: ${u.email ?? '(none — wallet/social login)'}`);
+    console.error(humans.length === 1 ? 'Tip: ./run-local.sh seed auto' : 'Re-run with one of the usernames above.');
+    process.exit(1);
+  }
   console.log(`owner: ${owner.username} (${owner._id.toHexString()})`);
 
   // 1 + 2: tenants on the runtime, AgentDocs in Mongo.

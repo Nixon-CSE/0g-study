@@ -11,15 +11,23 @@ export type UploadResult =
   | { ok: true; id: string }
   | { ok: false; status: 400 | 413; error: string };
 
+/** Pure validation; null when the data URL is acceptable. */
+export function checkUpload(dataUrl: unknown): { status: 400 | 413; error: string } | null {
+  if (typeof dataUrl !== 'string') return { status: 400, error: 'dataUrl required' };
+  if (dataUrl.length > MAX_UPLOAD_CHARS) return { status: 413, error: 'image too large' };
+  if (!DATA_URL.test(dataUrl)) return { status: 400, error: 'dataUrl must be a png/jpeg/webp base64 data URL' };
+  return null;
+}
+
 /** Validate and store a notes photo. Filenames are always server-generated UUIDs. */
 export async function saveUpload(agentDir: string, dataUrl: unknown): Promise<UploadResult> {
-  if (typeof dataUrl !== 'string') return { ok: false, status: 400, error: 'dataUrl required' };
-  if (dataUrl.length > MAX_UPLOAD_CHARS) return { ok: false, status: 413, error: 'image too large' };
-  if (!DATA_URL.test(dataUrl)) return { ok: false, status: 400, error: 'dataUrl must be a png/jpeg/webp base64 data URL' };
+  const bad = checkUpload(dataUrl);
+  if (bad) return { ok: false, ...bad };
+  const url = dataUrl as string;
   const id = crypto.randomUUID();
   const dir = path.join(agentDir, 'uploads');
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(path.join(dir, `${id}.txt`), dataUrl);
+  await fs.writeFile(path.join(dir, `${id}.txt`), url);
   return { ok: true, id };
 }
 

@@ -12,17 +12,29 @@ export interface ParsedMarkers {
   uploadIds: string[];
 }
 
+// The runtime appends exactly one marker at the very end of a reply. Only that one is proof;
+// a marker anywhere else (echoed by the model, typed by a user) is stripped but never trusted.
+const TRAILING_ZG_RE = /⟦0g:([^⟧]*)⟧\s*$/;
+const REQUEST_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+
 export function parseMarkers(content: string): ParsedMarkers {
   const requestIds: string[] = [];
   const uploadIds: string[] = [];
-  const text = content
-    .replace(ZG_RE, (_m, ids: string) => {
-      requestIds.push(...ids.split(",").map((s) => s.trim()).filter(Boolean));
-      return "";
-    })
+  const trailing = (content ?? "").match(TRAILING_ZG_RE);
+  if (trailing) {
+    const ids = trailing[1].split(",").map((s) => s.trim()).filter(Boolean);
+    if (ids.length > 0 && ids.length <= 20 && ids.every((id) => REQUEST_ID_RE.test(id))) requestIds.push(...ids);
+  }
+  const text = (content ?? "")
+    .replace(ZG_RE, "")
     .replace(UPLOAD_RE, (_m, id: string) => { uploadIds.push(id); return ""; })
     .trim();
   return { text, requestIds, uploadIds };
+}
+
+/** 0G proof ids to show for a message: only agent replies can carry proof. */
+export function trustedRequestIds(parsed: ParsedMarkers, isBot: boolean | undefined): string[] {
+  return isBot ? parsed.requestIds : [];
 }
 
 export function withUploadMarker(text: string, uploadId: string | null): string {
