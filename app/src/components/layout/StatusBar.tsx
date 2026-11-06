@@ -280,7 +280,7 @@ export default function StatusBar() {
 
   return (
     <div
-      className="flex items-center justify-between px-3 py-1 text-xs border-t relative"
+      className="flex items-center gap-3 px-3 py-1 text-xs border-t relative whitespace-nowrap max-w-full"
       style={{
         background: "var(--bf-plum)",
         borderColor: "rgba(0,0,0,0.25)",
@@ -289,7 +289,7 @@ export default function StatusBar() {
         flexShrink: 0,
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="hidden min-[1100px]:flex items-center gap-2 flex-shrink-0">
         <span
           className="inline-block w-1.5 h-1.5 rounded-full"
           style={{ background: address ? "var(--bf-banana)" : "rgba(255,255,255,0.5)" }}
@@ -297,17 +297,21 @@ export default function StatusBar() {
         <span style={{ color: "rgba(255,255,255,0.75)" }}>0G Galileo Testnet</span>
       </div>
 
-      <div className="flex items-center gap-3 relative">
+      {/* One line at any width. Credits, calls and streak never shrink; details drop out below ~900 px, the
+          network label and wallet address below ~1100 px, and the OG balance truncates, then goes
+          below ~520 px. Measured in a browser from 1440 to 320 px: one line, no horizontal scroll. Truncation is per
+          item: overflow-hidden here would clip the popovers that open upward from this row. */}
+      <div className="flex items-center gap-3 relative min-w-0 ml-auto">
         {pc && <ZeroGAccount refreshKey={pc.calls} />}
         {pc && (
           <>
-            <span title="0G Private Computer usage today" style={{ color: "rgba(255,255,255,0.85)" }}>
-              ⚡ {pc.calls} calls · {pc.tokens.toLocaleString()} tokens today
+            <span className="flex-shrink-0" title={`0G Private Computer usage today: ${pc.calls} calls, ${pc.tokens.toLocaleString()} tokens`} style={{ color: "rgba(255,255,255,0.85)" }}>
+              ⚡ {pc.calls} calls<span className="hidden min-[900px]:inline"> · {pc.tokens.toLocaleString()} tokens today</span>
             </span>
-            <span title="Daily study streak" style={{ color: "var(--bf-banana)" }}>
-              🔥 {pc.streak}-day streak · {pc.today} cards today
+            <span className="flex-shrink-0" title={`Daily study streak: ${pc.streak} days, ${pc.today} cards today`} style={{ color: "var(--bf-banana)" }}>
+              🔥 {pc.streak}-day streak<span className="hidden min-[900px]:inline"> · {pc.today} cards today</span>
             </span>
-            <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
+            <span className="hidden min-[1100px]:inline" style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
           </>
         )}
         {address ? (
@@ -316,7 +320,7 @@ export default function StatusBar() {
               type="button"
               onClick={handleCopy}
               title={copied ? "Copied!" : `Copy ${address}`}
-              className="flex items-center gap-1 hover:text-[var(--foreground)] transition-colors cursor-pointer"
+              className="hidden min-[1100px]:flex items-center gap-1 flex-shrink-0 hover:text-[var(--foreground)] transition-colors cursor-pointer"
               style={{ color: "rgba(255,255,255,0.75)" }}
             >
               <span>{shortAddr(address)}</span>
@@ -326,14 +330,14 @@ export default function StatusBar() {
                 <Copy size={12} />
               )}
             </button>
-            <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
+            <span className="hidden min-[520px]:inline flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
             {error ? (
-              <span style={{ color: "var(--bf-banana)" }} title={error}>
+              <span className="hidden min-[520px]:inline min-w-0 truncate" style={{ color: "var(--bf-banana)" }} title={error}>
                 balance unavailable
               </span>
             ) : balance !== null ? (
-              <span className="flex items-center gap-2">
-                <span>
+              <span className="hidden min-[520px]:flex items-center gap-2 min-w-0">
+                <span className="min-w-0 truncate" title={`Wallet balance: ${balance} OG`}>
                   <span
                     className="font-semibold"
                     style={{ color: isZero ? "var(--bf-banana)" : "var(--bf-white)" }}
@@ -346,7 +350,7 @@ export default function StatusBar() {
                   <button
                     type="button"
                     onClick={() => setFundOpen((o) => !o)}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold hover:opacity-90"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold hover:opacity-90 flex-shrink-0"
                     style={{ background: "var(--bf-banana)", color: "var(--bf-primary)" }}
                   >
                     <Droplets size={10} /> Get OG
@@ -364,7 +368,7 @@ export default function StatusBar() {
             )}
           </>
         ) : (
-          <span style={{ color: "rgba(255,255,255,0.75)" }}>wallet not connected</span>
+          <span className="min-w-0 truncate" title="wallet not connected" style={{ color: "rgba(255,255,255,0.75)" }}>wallet not connected</span>
         )}
       </div>
     </div>
