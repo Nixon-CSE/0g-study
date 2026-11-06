@@ -89,3 +89,21 @@ describe('router quirks', () => {
     expect(seen[1].chat_template_kwargs).toEqual({ enable_thinking: false });
   });
 });
+
+describe("0G's own request id (x_0g_trace)", () => {
+  const UUID = '8f5e7c69-d405-4c88-9e82-cfeb2dadde5b';
+  const res = (body: object, headers: Record<string, string>) => async () =>
+    new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json', ...headers } });
+  it('uses x_0g_trace.request_id — the UUID the router bills under — over the headers', async () => {
+    resetRouterTrace();
+    const f = makeTracedFetch(res({ x_0g_trace: { request_id: UUID }, usage: { total_tokens: 3 } }, { 'x-request-id': `1fcb49b7a5c6d9ed, ${UUID}` }) as any);
+    await f('https://router/v1/chat/completions');
+    expect(drainRouterCalls()[0].requestId).toBe(UUID);
+  });
+  it('falls back to the header UUID when the body has no trace, and ignores a malformed trace id', async () => {
+    resetRouterTrace();
+    await makeTracedFetch(res({}, { 'x-request-id': `1fcb49b7a5c6d9ed, ${UUID}` }) as any)('https://router/v1/embeddings');
+    await makeTracedFetch(res({ x_0g_trace: { request_id: '<script>' } }, { 'x-request-id': `1fcb49b7a5c6d9ed, ${UUID}` }) as any)('https://router/v1/embeddings');
+    expect(drainRouterCalls().map((c) => c.requestId)).toEqual([UUID, UUID]);
+  });
+});

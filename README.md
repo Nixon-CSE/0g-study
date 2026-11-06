@@ -31,7 +31,7 @@ A per-user daily streak (consecutive UTC days with at least one logged flashcard
 
 ### Proof on every reply
 
-Every 0G call is traced (request ID, HTTP status, token usage). When an agent finishes a turn, the request IDs of that turn are attached to the reply, and the UI shows a `0G · <id>…` badge. Click to copy the IDs and match them in the [pc.0g.ai](https://pc.0g.ai) dashboard. The router sends two `X-Request-Id` values (a 16-hex gateway id and a UUID); we keep the UUID.
+Every 0G call is traced (request ID, HTTP status, token usage). When an agent finishes a turn, the request IDs of that turn are attached to the reply, and the UI shows a `0G · <id>…` badge. Click to copy the IDs and match them in the [pc.0g.ai](https://pc.0g.ai) dashboard. The router sends two `X-Request-Id` values (a 16-hex gateway id and a UUID); we keep the UUID, which is the `request_id` in 0G's own `x_0g_trace` record in each response body (the record that carries the call's billing), and the tracer reads it from there when present.
 
 ### Study memory (RAG on 0G)
 

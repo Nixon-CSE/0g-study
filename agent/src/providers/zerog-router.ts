@@ -54,7 +54,9 @@ const REQUEST_ID_HEADERS = ['x-request-id', 'x-0g-request-id', 'request-id'];
 
 /**
  * The router sends TWO X-Request-Id headers (a 16-hex gateway id and a UUID), which fetch joins
- * with ", ". Keep one id: prefer the UUID. UNVERIFIED which one the pc.0g.ai dashboard shows.
+ * with ", ". Keep one id: prefer the UUID. Checked 2026-11-06: the response body's own
+ * `x_0g_trace.request_id` (next to the billing record) is that UUID, for chat and embeddings, so the
+ * UUID is 0G's request id. makeTracedFetch prefers the body value when present.
  */
 export function pickRequestId(raw: string | null): string | null {
   if (!raw) return null;
@@ -100,6 +102,9 @@ export function makeTracedFetch(base: typeof fetch = fetch): typeof fetch {
       if ((res.headers.get('content-type') ?? '').includes('json')) {
         const j: any = await res.clone().json();
         tokens = Number(j?.usage?.total_tokens ?? 0) || 0;
+        // 0G's own trace record names the request id; prefer it over the headers.
+        const traced = j?.x_0g_trace?.request_id;
+        if (typeof traced === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(traced)) requestId = traced;
         // Fallback (PRD G2): no header -> use the completion id from the JSON body.
         if (!requestId && typeof j?.id === 'string') requestId = j.id;
       }
