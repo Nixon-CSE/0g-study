@@ -91,7 +91,8 @@ for (const id of targets) {
   };
   console.log(`\n== ${id}  [metadata: ${row.verifiability ?? 'no verifiability'}${row.teeType ? ` / ${row.teeType}` : ''}, tools ${row.tools ? 'yes' : 'no'}, image ${row.imageInput ? 'yes' : 'no'}, $${row.pricePer1M.input}/$${row.pricePer1M.output} per 1M in/out]`);
   // Thinking off where the model accepts it (same rule as the runtime), so answers stay short.
-  const extra = params.includes('chat_template_kwargs') ? { chat_template_kwargs: { enable_thinking: false } } : {};
+  const extra = /^gemini/i.test(id) ? { extra_body: { google: { thinking_config: { thinking_budget: 0 } } } }
+    : params.includes('chat_template_kwargs') ? { chat_template_kwargs: { enable_thinking: false } } : {};
 
   if (m?.type === 'embedding') {
     row.basic = markers(await call('/embeddings', { model: id, input: 'hello world' }));

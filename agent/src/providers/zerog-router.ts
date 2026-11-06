@@ -88,6 +88,16 @@ export function acceptsThinkingKwargs(model: unknown): boolean {
   return typeof model === 'string' && THINKING_KWARGS_MODELS.test(model);
 }
 
+/**
+ * Gemini ignores chat_template_kwargs. Measured 2026-11-06 on gemini-2.5-flash with the read_notes
+ * prompt: thinking used 670-1350 of the 1,500 max_tokens and could truncate the transcription
+ * (finish_reason "length"). Of reasoning_effort none/low, a top-level `google` field, `thinking` and this
+ * field, only this one gave 0 reasoning tokens. The router doesn't list it, but passes it through; no
+ * Gemini tier tried rejected it (gemini-2.5-pro ignores it).
+ */
+const GEMINI_MODELS = /^gemini/i;
+export const GEMINI_THINKING_OFF = { google: { thinking_config: { thinking_budget: 0 } } };
+
 /** Router models think by default, which burns max_tokens. Turn thinking off unless ZEROG_THINKING=on. */
 export function withThinkingOff(base: typeof fetch): typeof fetch {
   return async (input, init) => {
@@ -97,6 +107,10 @@ export function withThinkingOff(base: typeof fetch): typeof fetch {
         const b = JSON.parse(init.body);
         if (b && typeof b === 'object' && !b.chat_template_kwargs && acceptsThinkingKwargs(b.model)) {
           b.chat_template_kwargs = { enable_thinking: false };
+          return base(input, { ...init, body: JSON.stringify(b) });
+        }
+        if (b && typeof b === 'object' && !b.extra_body && typeof b.model === 'string' && GEMINI_MODELS.test(b.model)) {
+          b.extra_body = GEMINI_THINKING_OFF;
           return base(input, { ...init, body: JSON.stringify(b) });
         }
       } catch { /* not JSON: send as is */ }

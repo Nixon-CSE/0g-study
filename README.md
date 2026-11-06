@@ -83,7 +83,7 @@ Code: [agent/src/rag/](agent/src/rag/) (`chunk`, `embed`, `store`, `search`, `no
 
 Private chat models do exist (`glm-5.3` and `0gm-1.0-35b-a3b`, both `TeeML` with tool calling; the second also accepts images). We have not switched to them: it is a cost/latency/quality decision left to the maintainer, and `0gm-1.0-35b-a3b` returned 502 on that day. Each request ID on a reply's badge shows its own `x-0g-e2ee` value in the tooltip, so you can see per call which ones were sealed.
 
-Model availability changes; list current models with `node agent/scripts/smoke-router.mjs` (or `GET /v1/models`). Router models "think" by default, which burns `max_tokens`; the provider turns thinking off for open-weight families (qwen, deepseek, glm, kimi, mimo) and leaves other models untouched because they reject the extra field.
+Model availability changes; list current models with `node agent/scripts/smoke-router.mjs` (or `GET /v1/models`). Router models "think" by default, which burns `max_tokens`; the provider turns thinking off for open-weight families (qwen, deepseek, glm, kimi, mimo, 0gm) with `chat_template_kwargs`, and for Gemini with `extra_body.google.thinking_config.thinking_budget: 0` (gemini-2.5-pro ignores it; without it, gemini-2.5-flash's thinking could use up `read_notes`' 1,500 tokens and cut the transcription off). Other models are left untouched because they reject the extra field.
 
 ---
 
@@ -145,7 +145,7 @@ With `dev:no-docker` the database is in memory: re-run the seed after restarting
 ### Tests
 
 ```bash
-cd agent   && pnpm typecheck && pnpm test             # 262 tests
+cd agent   && pnpm typecheck && pnpm test             # 265 tests
 cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 255 tests (in-process Mongo, mocked 0G Storage)
 cd app     && npx tsc --noEmit && npx vitest run && npm run lint
 bash scripts/verify-inft-integration.sh                # everything, incl. contracts
