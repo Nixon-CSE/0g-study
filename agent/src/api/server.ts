@@ -35,6 +35,7 @@ export interface ApiDeps {
   tenantRegistry: TenantRegistry;
   resetSession: (key: { channel: string; chatId: string; topic?: string }) => number;
   memoryStats: () => { sessions: number; messages: number; vectors: number };
+  telegramRunning?: () => boolean;
 }
 
 /** Builds the HTTP app (exported so tests exercise the real route + middleware wiring). */
@@ -64,6 +65,7 @@ export function buildApi(d: ApiDeps) {
     listSkills: d.listSkills,
     evolutionMode: d.evolutionMode,
     memoryStats: d.memoryStats,
+    telegramRunning: d.telegramRunning,
   }));
   return app;
 }

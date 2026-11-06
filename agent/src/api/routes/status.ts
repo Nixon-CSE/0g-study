@@ -7,6 +7,8 @@ export interface StatusRouteDeps {
   listSkills: () => SkillRecord[];
   evolutionMode: () => 'off' | 'suggest' | 'auto-safe' | 'auto-all';
   memoryStats: () => { sessions: number; messages: number; vectors: number };
+  /** Whether the Telegram bot is actually connected right now (not just enabled in config). */
+  telegramRunning?: () => boolean;
 }
 
 /** Rich, read-only status for monitoring / the wrapping product (BonFire). */
@@ -22,9 +24,12 @@ export function statusRoutes(opts: StatusRouteDeps) {
       id: cfg.id,
       uptime: process.uptime(),
       llm: { provider: cfg.llm.provider, model: cfg.llm.model ?? null },
+      // `telegram` is true only while the bot is really connected: enabled in config but with no token,
+      // a bad token or a crashed poller, it is false. `telegramEnabled` is the config flag.
       channels: {
         web: cfg.channels.web.enabled,
-        telegram: cfg.channels.telegram.enabled,
+        telegram: opts.telegramRunning?.() ?? false,
+        telegramEnabled: cfg.channels.telegram.enabled,
       },
       evolution: opts.evolutionMode(),
       skills: { count: skills.length, names: skills.map((s) => s.name) },

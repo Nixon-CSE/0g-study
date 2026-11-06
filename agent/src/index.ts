@@ -124,6 +124,7 @@ async function main() {
     tenantRegistry,
     resetSession: (key) => runtime.resetSession(key),
     memoryStats: () => store.stats(),
+    telegramRunning: () => telegram.running,
   });
 
   log.info({ port, skills: skills.length, mcp: mcpHandles.length, web: true, telegram: loaded.config.channels.telegram.enabled }, 'ready');
