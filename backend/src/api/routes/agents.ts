@@ -119,14 +119,19 @@ export function agentRoutes(deps: AgentRouteDeps) {
    *
    * Proxies a safe subset of the agent runtime's /config (llm model, provider,
    * temperature). Swallows errors so unreachable agents return nulls gracefully.
+   *
+   * `connections.telegram` is true only when the runtime's public /status says its Telegram bot is
+   * really connected AND this agent is the runtime's own persona: the bot never reaches a tenant
+   * persona (e.g. study-tutor on the shared runtime). Unreachable or unknown → false.
    */
   app.get('/v1/agents/:aid/config', async (c) => {
     const a = await findAgentByIdOrSlug(deps.db, c.req.param('aid'));
     if (!a) return c.json({ error: 'not_found' }, 404);
     try {
-      const [cfgRes, tenantRes] = await Promise.allSettled([
+      const [cfgRes, tenantRes, statusRes] = await Promise.allSettled([
         agentFetch(`${a.baseUrl}/config`).then(r => r.json() as Promise<Record<string, unknown>>),
         agentFetch(`${a.baseUrl}/tenants/${a.slug}`).then(r => r.json() as Promise<Record<string, unknown>>),
+        fetch(`${a.baseUrl}/status`, { signal: AbortSignal.timeout(3000) }).then(r => (r.ok ? r.json() : null) as Promise<Record<string, unknown> | null>),
       ]);
       const cfg = cfgRes.status === 'fulfilled' ? cfgRes.value : {};
       const tenantData = tenantRes.status === 'fulfilled' ? tenantRes.value : {};
@@ -136,13 +141,16 @@ export function agentRoutes(deps: AgentRouteDeps) {
       const provider = ((tenantLlm?.provider ?? globalLlm?.provider) as string | undefined) ?? null;
       const rawModel = ((tenantLlm?.model ?? globalLlm?.model) as string | undefined) ?? null;
       const model = rawModel ?? (provider === 'zerog' ? '0G Compute (auto)' : null);
+      const status = statusRes.status === 'fulfilled' ? statusRes.value : null;
+      const channels = status?.channels as Record<string, unknown> | undefined;
       return c.json({
         model,
         provider,
         temperature: ((tenantLlm?.temperature ?? globalLlm?.temperature) as number | undefined) ?? null,
+        connections: { telegram: channels?.telegram === true && !tenant },
       });
     } catch {
-      return c.json({ model: null, provider: null, temperature: null });
+      return c.json({ model: null, provider: null, temperature: null, connections: { telegram: false } });
     }
   });
 
