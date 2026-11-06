@@ -317,6 +317,19 @@ await test('the Tutor answers a question only the first photo can answer, citing
   assert(MARKER_RE.test(reply), 'no ⟦0g:…⟧ marker');
 }, { skip: ragSkip });
 
+await test('the Examiner asks a question drawn from the earlier (first-photo) notes', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const reply = await chatAgent({
+    userId: `e2e-rag-${Date.now()}`, studentId: ragStudent, tenant: 'study-examiner',
+    text: `@study-tutor said: Today is Newton's laws. This builds on your earlier biology notes [notes · ${today} · #1].\nFlashcards: Q: State Newton's 2nd law. A: F = m a.\n\n@study-examiner — quiz me on my earlier biology notes (the cited passage), one question.`,
+  }, 180000);
+  const q = reply.replace(MARKER_RE, '');
+  assert(/photosynth|calvin|rubisco|chloroph|thylakoid|nadph|atp|glucose|light reaction|stroma/i.test(q), `question is not about the first photo: ${q.slice(0, 300)}`);
+  assert(q.includes('?'), `no question asked: ${q.slice(0, 200)}`);
+  assert(!/@study-/.test(q), 'the examiner must not @-mention anyone');
+  assert(MARKER_RE.test(reply), 'no ⟦0g:…⟧ marker');
+}, { skip: ragSkip });
+
 // ── report ───────────────────────────────────────────────────────────────────
 const n = (s) => results.filter((r) => r.status === s).length;
 console.log(`\n${C.b('Live E2E')}: ${C.g(`${n('pass')} passed`)}, ${n('fail') ? C.r(`${n('fail')} failed`) : '0 failed'}, ${C.y(`${n('skip')} skipped`)}`);
