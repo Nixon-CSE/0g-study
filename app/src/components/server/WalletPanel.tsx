@@ -6,9 +6,7 @@ import type { BackendServerWallet, BackendServerFunding } from '@/lib/types';
 import Modal, { ModalLabel, ModalInput } from '@/components/shared/Modal';
 import { useFundServerWallet } from '@/lib/server-wallet';
 import { useAuth } from '@/components/auth/AuthProvider';
-
-/** Below this OG balance we warn, show faucet link, and omit the tier pill (no "Low" label). */
-const LOW_BALANCE_THRESHOLD_OG = 0.1;
+import { LOW_BALANCE_THRESHOLD_OG, WALLET_OPTIONAL_COPY, isLowBalance } from '@/lib/wallet-display';
 
 interface Props {
   serverId: string;
@@ -91,7 +89,7 @@ export default function WalletPanel({ serverId }: Props) {
 
   const short = wallet.address.slice(0, 6) + '…' + wallet.address.slice(-4);
   const bal = balance !== null ? Number(balance) : null;
-  const lowBalance = bal !== null && bal < LOW_BALANCE_THRESHOLD_OG;
+  const lowBalance = isLowBalance(bal);
 
   const tier =
     bal === null ? null :
@@ -127,12 +125,12 @@ export default function WalletPanel({ serverId }: Props) {
       </div>
 
       {/* Balance */}
-      <div
-        className="text-lg font-bold"
-        style={{ color: lowBalance ? 'var(--negative)' : 'var(--foreground)' }}
-      >
+      <div className="text-lg font-bold" style={{ color: 'var(--foreground)' }}>
         {bal !== null ? `${bal.toFixed(4)} OG` : '— OG'}
       </div>
+      {lowBalance && (
+        <p className="text-xs mt-0.5" style={{ color: 'var(--bf-gray)' }}>{WALLET_OPTIONAL_COPY}</p>
+      )}
 
       {/* Wallet address — click to copy full address */}
       <button
