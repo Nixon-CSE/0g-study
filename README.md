@@ -1,6 +1,6 @@
 # 0G Study
 
-> Photograph your notes. A pod of three AI agents reads them, explains the hard parts, writes flashcards and quizzes you. Every reply runs on **0G Private Computer** and shows the 0G request ID that produced it.
+> Photograph your notes. A pod of three AI agents reads them, explains the hard parts, writes flashcards and quizzes you. Every reply goes through **0G Private Computer** and shows the 0G request IDs that produced it. Study-memory embeddings run on a TEE-private provider; the chat and vision models we use do not (see *Privacy* below).
 
 **Remove 0G and the pod stops: the Note Reader can't read the photo, and the Tutor and Examiner have no inference.**
 
@@ -10,6 +10,7 @@
 |---|---|
 | **Prize target** | ETHGlobal Mumbai — 0G "Build with 0G Private Computer" |
 | **Inference** | 0G Private Computer router (`https://router-api.0g.ai/v1`), OpenAI-compatible |
+| **Private (TEE) provider** | Embeddings only (`qwen3-embedding-0.6b`, TeeML/TDX). Chat (`deepseek-v4.1-flash`, served via aliyun) and vision (`gemini-2.5-flash`) are not TEE-private. |
 | **Contract** | `BonFireAgentINFT` at [`0x151819ebc4435937f704FbB726DE6f99Bda262Bb`](https://chainscan-galileo.0g.ai/address/0x151819ebc4435937f704FbB726DE6f99Bda262Bb) on 0G Galileo testnet (chainID 16602) |
 
 ---
@@ -35,7 +36,7 @@ Every 0G call is traced (request ID, HTTP status, token usage). When an agent fi
 
 ### Study memory (RAG on 0G)
 
-Every page you photograph becomes searchable memory, built entirely on 0G Private Computer.
+Every page you photograph becomes searchable memory, built on 0G Private Computer. The embeddings model is served by a TEE-private provider (router metadata `TeeML`, shown as "Private" on pc.0g.ai).
 
 - **What is stored.** After `read_notes` transcribes a photo, the transcription is split into chunks (headings → paragraphs → sentences; formula lines, code and `$$` math are never split) and each chunk is embedded with **`qwen3-embedding-0.6b`** on 0G (`POST /v1/embeddings`, 1024-dim). The chunk text, its heading path, the day and the upload id are stored with the vector. The photo itself is still deleted after 24 hours. Note text and vectors are never logged.
 - **Where.** One file per student, `<agentDir>/study/<userId>/rag.json`, next to their flashcard logs. Re-reading the same photo replaces its chunks (keyed by upload id). An index records its embedding model and dimension; vectors from another model are never mixed. Changing `ZEROG_EMBED_MODEL` rebuilds each index from its stored chunk text with the new model on its next search or upload, all or nothing; if the new model fails, the old index is left untouched.
@@ -71,6 +72,16 @@ Code: [agent/src/rag/](agent/src/rag/) (`chunk`, `embed`, `store`, `search`, `no
 | Chat + tool calls (`ZEROG_LLM_MODEL`) | `deepseek-v4.1-flash` | chat, tool calling, `chat_template_kwargs` |
 | Vision (`ZEROG_VISION_MODEL`) | code default `qwen2.5-vl-72b-instruct`; the local demo's `agent/.env` runs **`gemini-2.5-flash`** (on 2026-11-06 `gemini-2.5-flash-lite` and `qwen2.5-vl-72b-instruct` returned 401 from 0G's upstream provider) | faithful transcription of a printed notes photo sent as a data URL |
 | Embeddings (`ZEROG_EMBED_MODEL`) | `qwen3-embedding-0.6b` | 1024-dim, batching, 32k-token context, request ID in `x-request-id` (`scripts/smoke-embeddings.mjs`) |
+
+**Which of these run on a Private (TEE) provider?** Checked on 2026-11-06 with `node agent/scripts/smoke-private.mjs --tutor --vision` (router metadata plus a few small requests; results in `.logs/smoke-private.json`):
+
+| Model | Router metadata | Response header `x-0g-e2ee` | `x_0g_trace.provider_identity` | pc.0g.ai |
+|---|---|---|---|---|
+| `qwen3-embedding-0.6b` (embeddings) | `TeeML`, TDX | `sealed` (seen on a 502: the provider was down that day) | — | Private |
+| `deepseek-v4.1-flash` (chat) | no verifiability | `none` | `aliyun` | not Private |
+| `gemini-2.5-flash` (vision) | no verifiability | `none` | `anonymous2` | badge not checked |
+
+Private chat models do exist (`glm-5.3` and `0gm-1.0-35b-a3b`, both `TeeML` with tool calling; the second also accepts images). We have not switched to them: it is a cost/latency/quality decision left to the maintainer, and `0gm-1.0-35b-a3b` returned 502 on that day. Each request ID on a reply's badge shows its own `x-0g-e2ee` value in the tooltip, so you can see per call which ones were sealed.
 
 Model availability changes; list current models with `node agent/scripts/smoke-router.mjs` (or `GET /v1/models`). Router models "think" by default, which burns `max_tokens`; the provider turns thinking off for open-weight families (qwen, deepseek, glm, kimi, mimo) and leaves other models untouched because they reject the extra field.
 
@@ -134,7 +145,7 @@ With `dev:no-docker` the database is in memory: re-run the seed after restarting
 ### Tests
 
 ```bash
-cd agent   && pnpm typecheck && pnpm test             # 261 tests
+cd agent   && pnpm typecheck && pnpm test             # 262 tests
 cd backend && pnpm typecheck && OG_STORAGE_MOCK=1 pnpm test   # 255 tests (in-process Mongo, mocked 0G Storage)
 cd app     && npx tsc --noEmit && npx vitest run && npm run lint
 bash scripts/verify-inft-integration.sh                # everything, incl. contracts
@@ -150,7 +161,7 @@ bash scripts/verify-inft-integration.sh                # everything, incl. contr
 - **Caps.** `STUDY_DAILY_CALL_CAP` (default 30) 0G calls (chat, vision and embeddings) and `STUDY_DAILY_UPLOAD_CAP` (default 20) photos per user per day, with a friendly message when reached. Uploads must be png/jpeg/webp data URLs under ~8 MB; ids are server-generated UUIDs and validated before any file access.
 - **Notes photos are temporary.** They are stored under the agent directory and deleted after 24 hours (checked at boot and hourly).
 - **Failures are honest.** If 0G is unreachable or a call fails, the agent says so in one line; the Note Reader never guesses at unreadable notes.
-- **What the request ID proves:** that this reply was produced by calls through *your* 0G Private Computer account, which you can match in the pc.0g.ai dashboard. 0G describes Private Computer as TEE-verified compute; **this app does not itself fetch or verify enclave attestations.**
+- **What the request ID proves:** that this reply was produced by calls through *your* 0G Private Computer account, which you can match in the pc.0g.ai dashboard. **Only some of those calls run on a TEE-private provider:** the embeddings do (router metadata `TeeML`, "Private" on pc.0g.ai); the chat and vision calls currently do not (no TEE metadata, `x-0g-e2ee: none`; chat is served via aliyun). The badge tooltip shows the header per request ID. **This app does not itself fetch or verify enclave attestations.**
 - **The "Demo hash" button** on messages in private (TEE-flagged) channels shows a hash computed by the backend for demo purposes ([backend/src/channels/service.ts](backend/src/channels/service.ts)). It is not a hardware attestation.
 
 ## Known limitations

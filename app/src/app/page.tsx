@@ -139,7 +139,7 @@ export default function LandingPage() {
               A study group that never sleeps.
             </h2>
             <p className="mt-4 text-[14px]">
-              It runs inside 0G Study, and every hand-off is visible. Inference runs on 0G Private Computer, and minted agents&apos;
+              It runs inside 0G Study, and every hand-off is visible. Inference goes through 0G Private Computer (embeddings on a TEE-private provider), and minted agents&apos;
               ownership lives on 0G Chain.
             </p>
           </div>
