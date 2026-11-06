@@ -5,6 +5,7 @@ import type { Channel, Agent } from "@/context/AppContext";
 import Avatar from "@/components/shared/Avatar";
 import { agentStudyFetch } from "@/lib/agent-study";
 import { withUploadMarker } from "@/lib/study-markers";
+import { photoDecodeError } from "@/lib/responsive";
 
 interface Props {
   channel: Channel;
@@ -28,6 +29,8 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
   const [mentionDismissed, setMentionDismissed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const [attachOpen, setAttachOpen] = useState(false);
   const [uploadId, setUploadId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -37,7 +40,9 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
     setUploading(true);
     setUploadError(null);
     try {
-      const bmp = await createImageBitmap(file);
+      // Separate from the upload's error handling: "can't decode" needs its own message.
+      const bmp = await createImageBitmap(file).catch(() => null);
+      if (!bmp) { setUploadError(photoDecodeError(file)); return; }
       const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(bmp.width * scale);
@@ -108,6 +113,12 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  // Touch devices get the camera as a choice. With a mouse the file picker opens as before.
+  const attach = () => {
+    if (window.matchMedia?.("(pointer: coarse)").matches) setAttachOpen((o) => !o);
+    else fileRef.current?.click();
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setText(e.target.value);
     setMentionDismissed(false);
@@ -131,7 +142,26 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
   }
 
   return (
-    <div className="px-4 pb-6 relative">
+    <div className="px-4 max-[767px]:px-2 pb-6 max-[767px]:pb-2 relative">
+      {/* Take a photo or pick one (touch devices) */}
+      {attachOpen && (
+        <div
+          className="absolute bottom-full left-2 mb-1 rounded-lg overflow-hidden shadow-2xl border z-20"
+          style={{ background: "var(--bf-quaternary)", borderColor: "var(--bf-quinary)" }}
+        >
+          {([["Take photo", cameraRef], ["Choose from library", fileRef]] as const).map(([label, ref]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => { setAttachOpen(false); ref.current?.click(); }}
+              className="block w-full min-h-[44px] px-4 text-left text-sm font-semibold text-[var(--foreground)]"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* @ mention autocomplete */}
       {showMentions && (
         <div
@@ -148,14 +178,14 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
             <button
               key={agent.id}
               onClick={() => insertMention(agent)}
-              className="flex items-center gap-3 w-full px-3 py-2 text-left transition-colors"
+              className="flex items-center gap-3 w-full px-3 py-2 min-h-[44px] text-left transition-colors"
               style={{ background: i === mentionIndex ? "var(--bf-quinary)" : "transparent" }}
               onMouseEnter={() => setMentionIndex(i)}
             >
               <Avatar name={agent.name} size={24} src={agent.avatar} color="var(--bf-fire)" className="flex-shrink-0" />
-              <span className="text-sm font-semibold text-[var(--foreground)]">{agent.name}</span>
+              <span className="text-sm font-semibold text-[var(--foreground)] truncate">{agent.name}</span>
               {agent.slug && (
-                <span className="text-xs font-mono" style={{ color: "var(--bf-gray)" }}>@{agent.slug}</span>
+                <span className="text-xs font-mono truncate" style={{ color: "var(--bf-gray)" }}>@{agent.slug}</span>
               )}
             </button>
           ))}
@@ -181,7 +211,7 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
                 setText(c.cmd + " ");
                 inputRef.current?.focus();
               }}
-              className="flex items-center gap-3 w-full px-3 py-2 text-left transition-colors hover:bg-[var(--bf-quinary)]"
+              className="flex items-center gap-3 w-full px-3 py-2 min-h-[44px] text-left transition-colors hover:bg-[var(--bf-quinary)]"
             >
               <code className="text-sm font-bold" style={{ color: "var(--bf-accent)" }}>{c.cmd}</code>
               <span className="text-sm" style={{ color: "var(--bf-gray)" }}>{c.desc}</span>
@@ -197,10 +227,11 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
       >
         {/* Attach / upload button */}
         <button
-          className="flex-shrink-0 w-11 flex items-center justify-center transition-colors"
+          className="flex-shrink-0 w-11 h-11 flex items-center justify-center transition-colors"
           style={{ color: "var(--bf-symbol)" }}
           title={uploadId ? "Notes photo attached" : uploading ? "Uploading…" : "Attach notes photo"}
-          onClick={() => fileRef.current?.click()}
+          aria-label="Attach notes photo"
+          onClick={attach}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--bf-gray)"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--bf-symbol)"; }}
         >
@@ -214,14 +245,17 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
         />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+        />
         {(uploadId || uploading) && (
           <span className="text-xs flex-shrink-0 pr-2" style={{ color: "var(--bf-accent)" }}>
             {uploading ? "uploading…" : "📎 notes attached"}
-          </span>
-        )}
-        {uploadError && !uploading && !uploadId && (
-          <span className="text-xs flex-shrink-0 pr-2" role="alert" style={{ color: "var(--bf-red, #a8372f)" }}>
-            {uploadError}
           </span>
         )}
         <input
@@ -231,16 +265,19 @@ export default function MessageComposer({ channel, onSend, agents = [] }: Props)
           onChange={handleChange}
           onKeyDown={handleKey}
           placeholder={`Message #${channel.name}`}
-          className="flex-1 bg-transparent py-2.5 text-sm text-[var(--foreground)] focus:outline-none placeholder-[var(--bf-gray)]"
+          className="flex-1 min-w-0 bg-transparent py-2.5 text-sm max-[767px]:text-base text-[var(--foreground)] focus:outline-none placeholder-[var(--bf-gray)]"
           style={{ color: "var(--bf-white)" }}
         />
 
         {/* Right icons */}
-        <div className="flex items-center gap-0.5 pr-2 flex-shrink-0">
+        <div className="flex items-center gap-0.5 pr-2 flex-shrink-0 max-[767px]:hidden">
           <ComposerBtn title="Send a gift"><Gift size={20} strokeWidth={1.5} /></ComposerBtn>
           <ComposerBtn title="Emoji"><Smile size={20} strokeWidth={1.5} /></ComposerBtn>
         </div>
       </div>
+      {uploadError && !uploading && !uploadId && (
+        <p className="text-xs px-1 pt-1" role="alert" style={{ color: "var(--bf-red, #a8372f)" }}>{uploadError}</p>
+      )}
     </div>
   );
 }
