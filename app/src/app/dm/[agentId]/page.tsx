@@ -1,4 +1,5 @@
 "use client";
+import { browserAgentUrl } from "@/lib/config";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Send, Bot, ArrowLeft } from "lucide-react";
@@ -88,7 +89,7 @@ export default function DmPage() {
 
     try {
       // Post to agent runtime
-      const res = await fetch(`${session.agentBaseUrl}/chat/message`, {
+      const res = await fetch(`${browserAgentUrl(session.agentBaseUrl)}/chat/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: "bonfire-user", text }),
@@ -97,7 +98,7 @@ export default function DmPage() {
       const { streamId } = await res.json();
 
       // Read SSE stream
-      const stream = await fetch(`${session.agentBaseUrl}/chat/stream/${streamId}`, {
+      const stream = await fetch(`${browserAgentUrl(session.agentBaseUrl)}/chat/stream/${streamId}`, {
         headers: { Accept: "text/event-stream" },
       });
       const reader = stream.body?.getReader();
