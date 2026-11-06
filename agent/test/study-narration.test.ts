@@ -20,6 +20,11 @@ describe('detectNarration', () => {
       'The search returned no earlier passages.',
       'Handing off to the next agent now.',
       'Thanks for the hand-off!',
+      // Seen in the live E2E on 2026-11-06:
+      "I don't have any notes to work from yet — the page didn't come through.",
+      "I'll pull up anything related from your earlier notes, then walk you through the tricky parts.",
+      "I'll walk you through the three ideas, then get your cards saved.",
+      "I'll save your cards now.",
     ]) expect(detectNarration(s), s).not.toEqual([]);
   });
 
@@ -30,6 +35,8 @@ describe('detectNarration', () => {
       'Partly right: water is split in photosystem II, but the oxygen is a by-product, not the electron source for NADPH. Next question: why does the cycle need three turns per G3P?',
       formatFlashcardsBlock([{ q: 'What does RuBisCO do?', a: 'It fixes CO2 onto RuBP.' }])!,
       'Momentum came up again: in a collision it is conserved. ⟦0g:abc-123⟧',
+      "Let's put those cards to work — answer from memory.",
+      'Go back to your earlier notes on the light reactions if this feels shaky [notes · 2026-11-05 · #1].',
     ];
     for (const s of clean) expect(detectNarration(s), s).toEqual([]);
   });
