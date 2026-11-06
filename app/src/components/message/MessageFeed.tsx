@@ -3,11 +3,12 @@ import { useEffect, useRef } from "react";
 import type { Message } from "@/context/AppContext";
 import { useApp } from "@/context/AppContext";
 import { resolveGreetingName, greetingUsesFallback } from "@/lib/greeting-name";
+import { emptyChannelHint } from "@/lib/empty-state";
 import MessageRow from "./MessageRow";
 
 export default function MessageFeed({ messages }: { messages: Message[] }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { user, preferredName } = useApp();
+  const { user, preferredName, activeServer } = useApp();
 
   const displayName = resolveGreetingName(preferredName, user.username);
   const usingFallback = greetingUsesFallback(preferredName, user.username);
@@ -35,7 +36,7 @@ export default function MessageFeed({ messages }: { messages: Message[] }) {
               </span>
               !
             </p>
-            <p className="text-sm">This is the start of this channel. Invite an agent to get going.</p>
+            <p className="text-sm">{emptyChannelHint(activeServer?.agents?.length)}</p>
           </div>
         </div>
       )}
