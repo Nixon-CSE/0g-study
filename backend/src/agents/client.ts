@@ -1,3 +1,5 @@
+import { agentFetch } from './admin-token.js';
+
 /**
  * Inline tenant payload — carries the decrypted INFT bundle directly to the agent
  * runtime so it can skip the slug-based registry lookup.
@@ -49,7 +51,7 @@ export async function invokeAgent(input: InvokeAgentInput): Promise<string> {
   if (input.envOverride && Object.keys(input.envOverride).length > 0) {
     body.envOverride = input.envOverride;
   }
-  const msgRes = await fetch(`${input.baseUrl}/chat/message`, {
+  const msgRes = await agentFetch(`${input.baseUrl}/chat/message`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -124,7 +126,7 @@ export async function openAgentStream(input: {
   if (input.envOverride && Object.keys(input.envOverride).length > 0) {
     body.envOverride = input.envOverride;
   }
-  const res = await fetch(`${input.baseUrl}/chat/message`, {
+  const res = await agentFetch(`${input.baseUrl}/chat/message`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),

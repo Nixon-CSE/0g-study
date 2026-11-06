@@ -1,4 +1,6 @@
 import { isSafeId } from '../../study/store.js';
+import { ADMIN_HEADER, tokenMatches } from '../admin-auth.js';
+import { log } from '../../util/logger.js';
 import { Hono } from 'hono';
 import { stream } from 'hono/streaming';
 import { serveStatic } from '@hono/node-server/serve-static';
@@ -26,6 +28,26 @@ const TenantPayloadSchema = z.object({
     maxTokens: z.number().optional(),
   }).default({}),
 });
+
+/**
+ * `studentId` selects whose study data (streak, flashcards, past notes) a turn may read and write, so it
+ * must not be forgeable from a public endpoint. It is honoured only when:
+ *   - AGENT_ADMIN_TOKEN is set (any deployment) and the request carries it: the BonFire backend,
+ *     which got the id from the signed-in user; or
+ *   - no admin token is configured (local dev) and the request is not a cross-origin browser call
+ *     (same rule as admin-auth, so a web page cannot impersonate a student on localhost).
+ * Otherwise the id is dropped and the turn runs with no student (study tools return ok:false).
+ */
+export function trustedStudentId(
+  raw: unknown,
+  req: { adminToken?: string; origin?: string; selfOrigin: string },
+): string | undefined {
+  if (!isSafeId(raw)) return undefined;
+  const token = process.env.AGENT_ADMIN_TOKEN;
+  if (token) return tokenMatches(req.adminToken, token) ? raw : undefined;
+  if (req.origin && req.origin !== req.selfOrigin) return undefined;
+  return raw;
+}
 
 export function chatRoutes(web: WebChatAdapter, publicDir: string) {
   const app = new Hono();
@@ -55,7 +77,12 @@ export function chatRoutes(web: WebChatAdapter, publicDir: string) {
       }
     }
 
-    const studentId = isSafeId(body.studentId) ? body.studentId : undefined;
+    const studentId = trustedStudentId(body.studentId, {
+      adminToken: c.req.header(ADMIN_HEADER),
+      origin: c.req.header('origin'),
+      selfOrigin: new URL(c.req.url).origin,
+    });
+    if (body.studentId !== undefined && !studentId) log.warn('chat/message: untrusted studentId dropped');
     const streamId = await web.enqueue(userId, text, tenantSlug, envOverride ?? undefined, tenantInline, studentId);
     return c.json({ streamId });
   });
