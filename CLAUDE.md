@@ -15,7 +15,7 @@ Buildable trees plus product docs. A pnpm workspace ([pnpm-workspace.yaml](pnpm-
 
 CI lives in [.github/workflows/ci.yml](.github/workflows/ci.yml): a `workspace` job (agent/backend/contracts typecheck + test) and an `app` job (install + typecheck + vitest + lint).
 
-`bonfire` is the umbrella product; `ember-agent` is what BonFire wraps. Top-level files ([prd.md](prd.md), [agent-prd.md](agent-prd.md), [resources.md](resources.md), [judging-criteria.md](judging-criteria.md), [submission.md](submission.md)) are product/design context for the hackathon submission, not code.
+`bonfire` is the umbrella product; `ember-agent` is what BonFire wraps. Top-level files ([prd.md](prd.md), [agent-prd.md](agent-prd.md), [resources.md](resources.md), [submission.md](submission.md)) are product/design context for the hackathon submission, not code.
 
 ## Commands
 
