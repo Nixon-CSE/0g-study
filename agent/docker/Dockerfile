@@ -1,11 +1,13 @@
 FROM node:20-bookworm-slim AS base
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates python3 build-essential && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Same major as CI and the lockfile; "latest" could change how installs and build scripts behave.
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile || pnpm install
+# A stale lockfile fails the build here rather than quietly deploying different versions.
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY tsconfig.json ./
@@ -19,13 +21,16 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/public ./public
 COPY package.json ./
-# Tenant registry (incl. the Study Pod personas) and the example agent directories are baked in so the
-# image runs on hosts without a bind mount (Railway, Render, Fly). The default agent is copied to /agent;
-# mount a volume at /agent (and /app/data) to persist study logs, uploads and tenant edits across deploys.
+# Baked defaults: the Study Pod tenants and the agent directory. A volume at /agent hides anything the image
+# puts there, so docker/entrypoint.sh copies these in, only when missing, at every boot. Everything the
+# app writes (study/, uploads/, memory/, data/tenants.json, skills it installs) lives under /agent.
 COPY data ./data
 COPY examples ./examples
-COPY examples/default-agent /agent
+COPY examples/default-agent ./defaults/agent
+COPY docker/entrypoint.sh ./docker/entrypoint.sh
 ENV NODE_ENV=production
 ENV AGENT_DIR=/agent
+ENV TENANTS_FILE=/agent/data/tenants.json
 EXPOSE 7777
-ENTRYPOINT ["sh", "-c", "exec node dist/index.js \"${AGENT_DIR}\""]
+ENTRYPOINT ["sh", "/app/docker/entrypoint.sh"]
+CMD ["sh", "-c", "exec node /app/dist/index.js \"$AGENT_DIR\""]

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import { isSafeId } from './store.js';
+import { allowedOrigins } from '../config/production.js';
 
 /**
  * NFR1: protect the Study Pod endpoints (/uploads, /usage, /study/index).
@@ -40,9 +41,6 @@ export function studyAuthEnabled(): boolean {
   return !!process.env.STUDY_JWT_SECRET;
 }
 
-function allowedOrigins(): string[] {
-  return (process.env.STUDY_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-}
 
 /** Sets c.var.studyUser to the verified user id (or undefined in open dev mode). */
 export const studyAuth: MiddlewareHandler<{ Variables: { studyUser?: string } }> = async (c, next) => {

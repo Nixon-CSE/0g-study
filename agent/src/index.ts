@@ -21,9 +21,11 @@ import { log } from './util/logger.js';
 import { purgeOldUploads } from './study/uploads.js';
 import { drainAllPending } from './rag/notes.js';
 import { accountsOffReason } from './study/zerog-account.js';
+import { assertProductionEnv } from './config/production.js';
 import { studyAuthEnabled } from './study/auth.js';
 
 async function main() {
+  assertProductionEnv();
   const agentDirArg = process.argv[2] ?? process.env.AGENT_DIR ?? './examples/default-agent';
   const agentDir = path.resolve(agentDirArg);
   log.info({ agentDir }, 'boot');
@@ -35,7 +37,8 @@ async function main() {
 
   // Initialize tenant registry — data/ lives next to the package root (one level up from src/ or dist/)
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const tenantsFile = path.resolve(here, '..', 'data', 'tenants.json');
+  // TENANTS_FILE puts it on the volume in production (see docker/entrypoint.sh).
+  const tenantsFile = process.env.TENANTS_FILE ? path.resolve(process.env.TENANTS_FILE) : path.resolve(here, '..', 'data', 'tenants.json');
   const tenantRegistry = new TenantRegistry(tenantsFile);
   await tenantRegistry.load();
   const stopTenantWatcher = tenantRegistry.watch();
