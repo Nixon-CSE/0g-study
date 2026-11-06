@@ -1,8 +1,12 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/components/shared/Modal";
 import { agentStudyFetch } from "@/lib/agent-study";
-import { API_KEYS_URL, CONNECT_CTA, MANAGEMENT_KEYS_URL, formatCredits, keyPrefixError } from "@/lib/credits";
+import { POD_REPLY_EVENT, clearSessionIds, sessionIds } from "@/lib/billing-session";
+import {
+  API_KEYS_URL, CONNECT_CTA, MANAGEMENT_KEYS_URL, balanceDetails, balanceName, formatMoney, keyPrefixError, sessionLine, toMicro, untilReset,
+  type AccountBalance, type BilledCall,
+} from "@/lib/credits";
 
 /**
  * "Use your daily iAI credits" (NEXT_PUBLIC_ZEROG_ACCOUNTS=on, agent ZEROG_USER_ACCOUNTS=on).
@@ -11,11 +15,36 @@ import { API_KEYS_URL, CONNECT_CTA, MANAGEMENT_KEYS_URL, formatCredits, keyPrefi
  * they bring two keys: sk-… API key (pays for their pod calls) and a Read-only mk-… management key
  * (account:read to read the balance, keys:read so the agent can check the sk- key is on that account).
  * The keys are sent once to the agent runtime, stored encrypted server-side and never sent back.
- * The status bar then shows the user's real 0G balance, re-read after each pod reply.
+ * The status bar then shows the real balance, re-read ~3 s and ~8 s after each pod reply: a charge
+ * reaches `available` within about 3 s.
  */
 export const ZEROG_ACCOUNTS_ENABLED = process.env.NEXT_PUBLIC_ZEROG_ACCOUNTS === "on";
 
-type Account = { enabled: boolean; connected: boolean; balance0G?: number | null; error?: string };
+type Account = { enabled: boolean; connected: boolean; balance?: AccountBalance | null; error?: string };
+
+/** Counts down to a lower target so a charge is visible; `drop` is how much just went. */
+function useCountdown(target: number | null) {
+  const [shown, setShown] = useState<number | null>(null);
+  const [drop, setDrop] = useState(0);
+  const last = useRef<number | null>(null);
+  useEffect(() => {
+    const from = last.current;
+    last.current = target;
+    if (target === null || from === null || target >= from) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const start = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const k = reduced ? 1 : Math.min(1, (t - start) / 900);
+      setShown(k < 1 ? from - (from - target) * k : null);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame((t) => { setDrop(from - target); step(t); });
+    const clear = setTimeout(() => setDrop(0), 5_000);
+    return () => { cancelAnimationFrame(raf); clearTimeout(clear); setShown(null); };
+  }, [target]);
+  return { value: shown ?? target, drop };
+}
 
 export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
   const [acct, setAcct] = useState<Account | null>(null);
@@ -24,6 +53,8 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
   const [managementKey, setManagementKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [details, setDetails] = useState(false);
+  const [session, setSession] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -39,6 +70,33 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
     const id = setInterval(load, 30_000);
     return () => clearInterval(id);
   }, [load, refreshKey]);
+
+  // A reply just spent credits: the charge shows in `available` within ~3 s.
+  useEffect(() => {
+    if (!ZEROG_ACCOUNTS_ENABLED) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const onReply = () => { timers.push(setTimeout(load, 3_000), setTimeout(load, 8_000)); };
+    window.addEventListener(POD_REPLY_EVENT, onReply);
+    return () => { window.removeEventListener(POD_REPLY_EVENT, onReply); timers.forEach(clearTimeout); };
+  }, [load]);
+
+  const balance = acct?.balance ?? null;
+  const { value: shown, drop } = useCountdown(balance ? toMicro(balance.currency, balance.available) : null);
+
+  // The session line sums what this tab's replies cost, as the student's own history reports it.
+  const openDetails = async () => {
+    const next = !details;
+    setDetails(next);
+    if (!next || !balance) return;
+    const ids = sessionIds();
+    if (ids.length === 0) { setSession(sessionLine([], balance.currency)); return; }
+    setSession(null);
+    try {
+      const r = await agentStudyFetch(`/study/account/billing?ids=${encodeURIComponent(ids.join(","))}`);
+      const j: { items?: Record<string, BilledCall>; currency?: string } = r.ok ? await r.json() : {};
+      setSession(sessionLine(Object.values(j.items ?? {}), j.currency ?? balance.currency));
+    } catch { setSession(null); }
+  };
 
   if (!ZEROG_ACCOUNTS_ENABLED || !acct?.enabled) return null;
 
@@ -62,6 +120,8 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
 
   const disconnect = async () => {
     await agentStudyFetch("/study/account", { method: "DELETE" }).catch(() => {});
+    clearSessionIds();
+    setDetails(false);
     await load();
   };
 
@@ -70,13 +130,34 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
   return (
     <>
       {acct.connected ? (
-        <span className="flex items-center gap-1.5">
-          <span title={acct.error ? `0G balance unavailable: ${acct.error}` : "Your 0G Private Computer balance (pays for your pod)"} style={{ color: "rgba(255,255,255,0.9)" }}>
-            Credits: {typeof acct.balance0G === "number" ? `${formatCredits(acct.balance0G)} 0G` : "—"}
-          </span>
+        <span className="flex items-center gap-1.5 relative">
+          <button
+            type="button"
+            onClick={openDetails}
+            className="cursor-pointer tabular-nums"
+            title={acct.error ? `0G balance unavailable: ${acct.error}` : "Your pc.0g.ai balance, which pays for your pod. Click for details."}
+            style={{ color: "rgba(255,255,255,0.9)" }}
+          >
+            {balance && shown !== null
+              ? `${balanceName(balance)}: ${formatMoney(balance.currency, shown)} · resets in ${untilReset()}`
+              : "0G credits: —"}
+          </button>
+          {balance && drop > 0 && (
+            <span className="tabular-nums" style={{ color: "var(--bf-banana)" }}>−{formatMoney(balance.currency, drop)}</span>
+          )}
           <button type="button" onClick={disconnect} className="underline cursor-pointer" style={{ color: "rgba(255,255,255,0.55)" }} title="Stop using your 0G account">
             disconnect
           </button>
+          {details && balance && (
+            <div
+              className="absolute right-0 bottom-full mb-2 w-72 rounded-lg p-3 shadow-2xl z-50 flex flex-col gap-1"
+              style={{ background: "var(--bf-secondary)", border: "1px solid var(--bf-border)", color: "var(--foreground)" }}
+            >
+              {balanceDetails(balance).map((line) => <p key={line}>{line}</p>)}
+              <p style={{ color: "var(--bf-gray)" }}>{session ?? "This session: —"}</p>
+              <p style={{ color: "var(--bf-gray)" }}>Daily credits refresh at 00:00 UTC, in {untilReset()}.</p>
+            </div>
+          )}
         </span>
       ) : (
         <button type="button" onClick={() => setOpen(true)} className="underline cursor-pointer" style={{ color: "rgba(255,255,255,0.85)" }}>
