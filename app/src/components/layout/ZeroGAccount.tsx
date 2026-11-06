@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useState } from "react";
 import Modal from "@/components/shared/Modal";
 import { agentStudyFetch } from "@/lib/agent-study";
-import { formatCredits } from "@/lib/credits";
+import { API_KEYS_URL, CONNECT_CTA, MANAGEMENT_KEYS_URL, formatCredits, keyPrefixError } from "@/lib/credits";
 
 /**
- * FR9 — "Connect your 0G account" (NEXT_PUBLIC_ZEROG_ACCOUNTS=on, agent ZEROG_USER_ACCOUNTS=on).
+ * "Use your daily iAI credits" (NEXT_PUBLIC_ZEROG_ACCOUNTS=on, agent ZEROG_USER_ACCOUNTS=on).
  *
- * The 0G Router has no OAuth flow; a user brings their account as two keys from pc.0g.ai:
- *   sk-… API key (pays for their pod calls) and mk-… management key with only account:read (balance).
+ * iAI daily credits sit in the student's pc.0g.ai balance and any key from that account spends them, so
+ * they bring two keys: sk-… API key (pays for their pod calls) and a Read-only mk-… management key
+ * (account:read to read the balance, keys:read so the agent can check the sk- key is on that account).
  * The keys are sent once to the agent runtime, stored encrypted server-side and never sent back.
  * The status bar then shows the user's real 0G balance, re-read after each pod reply.
  */
@@ -42,6 +43,8 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
   if (!ZEROG_ACCOUNTS_ENABLED || !acct?.enabled) return null;
 
   const connect = async () => {
+    const bad = keyPrefixError(apiKey, managementKey);
+    if (bad) { setErr(bad); return; }
     setBusy(true); setErr(null);
     try {
       const r = await agentStudyFetch("/study/account", {
@@ -50,7 +53,7 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
         body: JSON.stringify({ apiKey: apiKey.trim(), managementKey: managementKey.trim() }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) { setErr(j.error ?? "Could not connect."); return; }
+      if (!r.ok) { setErr(j.error ?? "Could not connect. Nothing was saved."); return; }
       setApiKey(""); setManagementKey(""); setOpen(false);
       await load();
     } catch { setErr("Could not reach the study server."); }
@@ -77,32 +80,36 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
         </span>
       ) : (
         <button type="button" onClick={() => setOpen(true)} className="underline cursor-pointer" style={{ color: "rgba(255,255,255,0.85)" }}>
-          Connect 0G account
+          {CONNECT_CTA}
         </button>
       )}
       <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
 
       {open && (
         <Modal
-          title="Connect your 0G account"
-          subtitle="Your pod calls are then paid from your own 0G Private Computer balance, and the balance shows in the status bar."
+          title="Use your daily iAI credits"
+          subtitle="Connect your pc.0g.ai account: your pod calls then spend your own credits, not the free tier."
           onClose={() => setOpen(false)}
           onConfirm={connect}
           confirmLabel={busy ? "Connecting…" : "Connect"}
-          confirmDisabled={busy || !apiKey.startsWith("sk-") || !managementKey.startsWith("mk-")}
+          confirmDisabled={busy || !apiKey.trim() || !managementKey.trim()}
         >
-          <ol className="text-sm flex flex-col gap-1.5 list-decimal pl-5" style={{ color: "var(--bf-gray)" }}>
-            <li>At <a className="underline" href="https://pc.0g.ai/dashboard/api-keys" target="_blank" rel="noreferrer">pc.0g.ai → Dashboard → API Keys</a>, create a key for 0G Study.</li>
-            <li>At pc.0g.ai → Settings → Management Keys, create a <b>Read-only</b> key (only <code>account:read</code> is needed).</li>
+          <ol className="text-sm flex flex-col gap-3 list-decimal pl-5" style={{ color: "var(--bf-gray)" }}>
+            <li className="flex flex-col gap-1.5">
+              <span>Create an API key at <a className="underline" href={API_KEYS_URL} target="_blank" rel="noreferrer">pc.0g.ai → API Keys</a>, and paste it here.</span>
+              <label className="text-xs flex flex-col gap-1">
+                API key (sk-…)
+                <input type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="rounded px-3 py-2 text-sm outline-none" style={inputStyle} placeholder="sk-…" />
+              </label>
+            </li>
+            <li className="flex flex-col gap-1.5">
+              <span>On the same account, create a key at <a className="underline" href={MANAGEMENT_KEYS_URL} target="_blank" rel="noreferrer">pc.0g.ai → Management Keys</a> with the <b>Read-only</b> preset (<code>account:read</code>, <code>keys:read</code>).</span>
+              <label className="text-xs flex flex-col gap-1">
+                Management key (mk-…, read-only)
+                <input type="password" autoComplete="off" value={managementKey} onChange={(e) => setManagementKey(e.target.value)} className="rounded px-3 py-2 text-sm outline-none" style={inputStyle} placeholder="mk-…" />
+              </label>
+            </li>
           </ol>
-          <label className="text-xs flex flex-col gap-1" style={{ color: "var(--bf-gray)" }}>
-            API key (sk-…)
-            <input type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="rounded px-3 py-2 text-sm outline-none" style={inputStyle} placeholder="sk-…" />
-          </label>
-          <label className="text-xs flex flex-col gap-1" style={{ color: "var(--bf-gray)" }}>
-            Management key (mk-…, read-only)
-            <input type="password" autoComplete="off" value={managementKey} onChange={(e) => setManagementKey(e.target.value)} className="rounded px-3 py-2 text-sm outline-none" style={inputStyle} placeholder="mk-…" />
-          </label>
           <p className="text-xs" style={{ color: "var(--bf-gray)" }}>
             Keys are stored encrypted on the study server and never shown again. Revoke them at pc.0g.ai any time.
           </p>
