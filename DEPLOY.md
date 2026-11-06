@@ -19,17 +19,19 @@ Create a database and note the connection string (`MONGODB_URI`) and name (`MONG
 
 - **Build:** Dockerfile `agent/docker/Dockerfile`, build context `agent/`.
 - **Port:** listens on `$PORT` if the host sets it, else `AGENT_API_PORT`, else 7777.
-- **Volume (recommended):** mount persistent storage at `/agent` (study logs, flashcards, uploads, users' encrypted 0G keys) and `/app/data` (tenant registry). Without one, streaks reset on every deploy.
+- **Volume (recommended):** mount persistent storage at `/agent` (study logs, flashcards, study-memory indexes `study/<user>/rag.json` and `rag/kb/<server>.json`, uploads, users' encrypted 0G keys) and `/app/data` (tenant registry). Without one, streaks and study memory reset on every deploy.
 
 | Variable | Value |
 |---|---|
 | `ZEROG_API_KEY` | shared `sk-` key from pc.0g.ai (fund the deposit) |
 | `ZEROG_LLM_MODEL` | `deepseek-v4.1-flash` (re-check with `node scripts/smoke-router.mjs`) |
-| `ZEROG_VISION_MODEL` | `qwen2.5-vl-72b-instruct` |
+| `ZEROG_VISION_MODEL` | `gemini-2.5-flash-lite` (what the demo runs; code default `qwen2.5-vl-72b-instruct`) |
+| `ZEROG_EMBED_MODEL` | `qwen3-embedding-0.6b` (study memory / knowledge-base RAG; check with `node scripts/smoke-embeddings.mjs`) |
 | `STUDY_JWT_SECRET` | **same value as the backend's `JWT_SECRET`** — without it the study endpoints are open |
 | `STUDY_ALLOWED_ORIGINS` | the app's URL, e.g. `https://0g-study.vercel.app` |
 | `STUDY_DAILY_CALL_CAP` / `STUDY_DAILY_UPLOAD_CAP` | `30` / `20` (defaults) |
 | `ZEROG_USER_ACCOUNTS` | `on` to enable "Connect 0G account" (FR9), else `off` |
+| `AGENT_ADMIN_TOKEN` | random, ≥ 32 chars; **same value as the backend's**. Guards the admin API (`/tenants`, `/config`, `/mcp`, `/rag`, …) and is the only way a `studentId` is accepted on `/chat/message` |
 
 ## 3. Backend (`backend/`)
 
@@ -41,6 +43,9 @@ Create a database and note the connection string (`MONGODB_URI`) and name (`MONG
 | `JWT_SECRET` | random, ≥ 32 chars (`openssl rand -hex 32`); copy it to the agent's `STUDY_JWT_SECRET` |
 | `PRIVY_APP_ID`, `PRIVY_APP_SECRET` | from dashboard.privy.io |
 | `CORS_ORIGINS` | the app's URL |
+| `EMBER_AGENT_BASE_URL` | the agent URL; the backend sends the admin token only to this origin and uses its `/rag/kb/*` routes for knowledge-base retrieval |
+| `AGENT_ADMIN_TOKEN` | same value as the agent's |
+| `KNOWLEDGE_RAG` | `on` (default) to rank knowledge-base docs with 0G embeddings; `off` keeps the old "20 newest docs" block |
 | `OG_RPC_URL` | `https://evmrpc-testnet.0g.ai` (default) |
 | `INFT_CONTRACT_ADDRESS`, `PLATFORM_EXECUTOR_PRIVATE_KEY` | optional — only for INFT minting / marketplace bundles |
 | `DAILY_API_KEY` etc. | optional — voice channels, not used by Study Pod |
@@ -74,3 +79,4 @@ Never put `ZEROG_API_KEY` or any `sk-`/`mk-` key in a `NEXT_PUBLIC_*` variable.
 2. Attach a notes photo, send `@study-note-reader`. Expect three replies, each with a `0G · …` badge, and the status bar's streak/cards to go up.
 3. From your machine: `curl -s <agent URL>/usage` must return **401** (proves `STUDY_JWT_SECRET` is set).
 4. Copy a request ID and find it in the pc.0g.ai dashboard. Paste three of them into `submission.md`.
+5. Study memory: the next day (or with a second photo on another topic), ask `@study-tutor` about the first photo. Expect a `[notes · <day> · #n]` citation and a `📚 from your notes` chip. `curl -s -X POST <agent URL>/rag/kb/search` must return **401**.

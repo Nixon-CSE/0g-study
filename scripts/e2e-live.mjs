@@ -19,6 +19,7 @@ const BACKEND = process.env.BACKEND_URL ?? 'http://localhost:8080';
 const APP = process.env.APP_URL ?? 'http://localhost:3000';
 const EVIL = 'https://evil.example';
 const PHOTO = path.join(ROOT, 'scripts/fixtures/notes-sample.png');
+const PHOTO2 = path.join(ROOT, 'scripts/fixtures/notes-physics.png'); // a different topic, for study memory (RAG)
 
 function readEnv(file) {
   const out = {};
@@ -70,8 +71,9 @@ const admin = () => (ADMIN_TOKEN ? { 'x-agent-admin-token': ADMIN_TOKEN } : {});
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const MARKER_RE = /⟦0g:([^⟧]+)⟧\s*$/;
 
+// The agent only honours `studentId` from the backend (admin token), so send it like the backend does.
 async function chatAgent(body, timeoutMs = 120000) {
-  const r = await req(AGENT, '/chat/message', { method: 'POST', body });
+  const r = await req(AGENT, '/chat/message', { method: 'POST', body, headers: body.studentId ? admin() : {} });
   eq(r.status, 200, 'POST /chat/message');
   const res = await fetch(`${AGENT}/chat/stream/${r.json.streamId}`, { signal: AbortSignal.timeout(timeoutMs) });
   const decoder = new TextDecoder();
@@ -150,6 +152,9 @@ await test('the payload never landed in mcp.json', async () => {
   const r = await req(AGENT, '/mcp/servers', { headers: admin() });
   eq(r.status, 200, 'admin GET status');
   assert(!r.json?.servers?.['e2e-pwn'], 'malicious MCP server was persisted!');
+});
+await test('knowledge-base RAG routes (/rag/kb/*) refuse anonymous callers', async () => {
+  for (const p of ['/rag/kb/index', '/rag/kb/delete', '/rag/kb/search']) eq((await req(AGENT, p, { method: 'POST', body: { serverId: 'x' } })).status, 401, p);
 });
 await test('the admin token does work (backend/seed path)', async () => eq((await req(AGENT, '/config', { headers: admin() })).status, 200, 'status'));
 
@@ -270,6 +275,47 @@ await test('three agent replies, each with a 0G proof badge, and flashcards logg
   assert(after.totalCards > before.totalCards, `no flashcards logged for ${sub} (before ${before.totalCards}, after ${after.totalCards})`);
   assert(after.streak >= 1, 'streak did not start');
 }, { skip: PRIVY ? (OFFLINE ? '--offline' : undefined) : 'set E2E_PRIVY_TOKEN' });
+
+// ── 7. study memory: RAG on 0G embeddings ───────────────────────────────────
+group('7. Study memory — RAG on 0G embeddings (two photos, recall the first)');
+const ragStudent = `e2erag${Date.now().toString(36)}`;
+const NOTES_CITE_RE = /\[notes · \d{4}-\d{2}-\d{2} · #\d+\]/;
+async function readPhotoAs(student, photo) {
+  const dataUrl = `data:image/png;base64,${fs.readFileSync(photo).toString('base64')}`;
+  const up = await req(AGENT, '/uploads', { method: 'POST', headers: bearer(studyToken(student)), body: { dataUrl } });
+  eq(up.status, 200, 'upload');
+  return chatAgent({ userId: `e2e-rag-${Date.now()}`, studentId: student, tenant: 'study-note-reader', text: `@study-note-reader [[upload:${up.json.id}]]` }, 180000);
+}
+const ragSkip = off ?? (podReady ? undefined : 'pod tenants not registered — run ./run-local.sh seed <you> first');
+await test('two different notes photos are read and remembered for the same student', async () => {
+  const bio = await readPhotoAs(ragStudent, PHOTO);
+  assert(/photosynthesis|calvin|rubisco/i.test(bio), `biology notes not read: ${bio.slice(0, 200)}`);
+  const phys = await readPhotoAs(ragStudent, PHOTO2);
+  assert(/newton|inertia|momentum/i.test(phys), `physics notes not read: ${phys.slice(0, 200)}`);
+  // read_notes = vision call + embeddings call → at least two 0G ids on the reply
+  const ids = phys.match(MARKER_RE)?.[1].split(',') ?? [];
+  assert(ids.length >= 2, `expected vision + embedding request ids on the reply, got ${ids.join(',') || 'none'}`);
+}, { skip: ragSkip });
+await test('GET /study/recall finds the FIRST photo for its owner (with a 0G request id), nothing for another student', async () => {
+  const q = encodeURIComponent('Which enzyme fixes carbon dioxide in the Calvin cycle?');
+  const r = await req(AGENT, `/study/recall?q=${q}`, { headers: bearer(studyToken(ragStudent)), timeout: 60000 });
+  eq(r.status, 200, `status (${r.text.slice(0, 200)})`);
+  assert(r.json.results.length > 0 && /rubisco/i.test(r.json.results[0].text), `top hit is not the RuBisCO passage: ${JSON.stringify(r.json.results[0] ?? null).slice(0, 200)}`);
+  assert(/^notes · \d{4}-\d{2}-\d{2} · #\d+$/.test(r.json.results[0].citation), `bad citation ${r.json.results[0].citation}`);
+  assert(UUID_RE.test(r.json.requestIds?.[0] ?? ''), 'no 0G embeddings request id');
+  const other = await req(AGENT, `/study/recall?q=${q}`, { headers: bearer(studyToken(`${ragStudent}x`)), timeout: 60000 });
+  eq(other.json.results.length, 0, "another student's recall");
+  eq((await req(AGENT, `/study/recall?q=${q}&user=${ragStudent}`, { headers: bearer(studyToken(`${ragStudent}x`)) })).status, 403, 'cross-user ?user=');
+}, { skip: ragSkip });
+await test('the Tutor answers a question only the first photo can answer, citing it, with a 0G marker', async () => {
+  const reply = await chatAgent({
+    userId: `e2e-rag-${Date.now()}`, studentId: ragStudent, tenant: 'study-tutor',
+    text: 'Quick check before today\'s physics: which enzyme from my earlier biology notes fixes CO2? Look it up in my past notes and cite them.',
+  }, 180000);
+  assert(/rubisco/i.test(reply), `tutor did not recall RuBisCO: ${reply.slice(0, 300)}`);
+  assert(NOTES_CITE_RE.test(reply), `no [notes · <day> · #n] citation: ${reply.slice(0, 300)}`);
+  assert(MARKER_RE.test(reply), 'no ⟦0g:…⟧ marker');
+}, { skip: ragSkip });
 
 // ── report ───────────────────────────────────────────────────────────────────
 const n = (s) => results.filter((r) => r.status === s).length;
