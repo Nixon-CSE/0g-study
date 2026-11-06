@@ -70,7 +70,11 @@ export function makeStudyTools(agentDir: string) {
       const studentId = currentContext()?.studentId;
       if (!studentId) return { ok: false, error: 'no student identified for this turn; flashcards not saved' };
       try {
-        return { ok: true, ...(await logStudySet(agentDir, studentId, { topic, cards })) };
+        const saved = await logStudySet(agentDir, studentId, { topic, cards });
+        // Flashcards travel with the reply (attached by the runtime), so the Examiner always sees them.
+        const ctx = currentContext();
+        if (ctx) ctx.flashcards = cards.map(({ q, a }) => ({ q, a }));
+        return { ok: true, ...saved };
       } catch (e: any) {
         return { ok: false, error: String(e?.message ?? e) };
       }

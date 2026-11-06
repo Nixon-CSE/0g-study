@@ -15,6 +15,8 @@ export interface RequestContext {
    * this turn are billed to it instead of the shared ZEROG_API_KEY. Never logged, never sent to a browser.
    */
   zerogApiKey?: string;
+  /** Cards saved by a successful `study_log` in this turn; the runtime attaches them to the reply. */
+  flashcards?: { q: string; a: string }[];
 }
 
 const store = new AsyncLocalStorage<RequestContext>();

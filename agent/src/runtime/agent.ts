@@ -13,6 +13,7 @@ import { log } from '../util/logger.js';
 import type { InboundMessage, TenantPayload } from '../channels/base.js';
 import type { EmbeddingModel } from 'ai';
 import { embedText } from '../memory/embeddings.js';
+import { attachFlashcards } from '../study/flashcards.js';
 import type { TenantRegistry } from '../tenants/registry.js';
 import type { Tenant } from '../tenants/types.js';
 
@@ -224,6 +225,9 @@ export class AgentRuntime {
 
     if (!final) {
       final = failureLine(failure);
+    } else {
+      // Cards saved by study_log go into the reply text (before the hand-off line), by code.
+      final = attachFlashcards(final, reqCtx.flashcards);
     }
     // 0G Private Computer proof: attach request ids (UI strips this marker and renders a badge).
     final += formatRequestIdMarker(reqCtx.calls.map((c) => c.requestId));
