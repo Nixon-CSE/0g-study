@@ -35,6 +35,8 @@ export interface InvokeAgentInput {
   envOverride?: Record<string, string>;
   /** Human who started this turn; lets the agent keep per-user study state. */
   studentId?: string;
+  /** Uploads in the cascade's root message; the agent's recall_notes skips them (they are today's notes). */
+  excludeUploadIds?: string[];
   /** Abort signal for upstream call. */
   signal?: AbortSignal;
 }
@@ -42,6 +44,7 @@ export interface InvokeAgentInput {
 export async function invokeAgent(input: InvokeAgentInput): Promise<string> {
   const body: Record<string, unknown> = { userId: input.chatId, text: input.text };
   if (input.studentId) body.studentId = input.studentId;
+  if (input.excludeUploadIds?.length) body.excludeUploadIds = input.excludeUploadIds;
   if (input.tenantInline) {
     // Inline tenant takes precedence — agent runtime detects object vs string
     body.tenant = input.tenantInline;
@@ -115,9 +118,12 @@ export async function openAgentStream(input: {
   envOverride?: Record<string, string>;
   /** Human who started this turn. */
   studentId?: string;
+  /** Uploads in the root message (see InvokeAgentInput). */
+  excludeUploadIds?: string[];
 }): Promise<OpenStreamHandle> {
   const body: Record<string, unknown> = { userId: input.chatId, text: input.text };
   if (input.studentId) body.studentId = input.studentId;
+  if (input.excludeUploadIds?.length) body.excludeUploadIds = input.excludeUploadIds;
   if (input.tenantInline) {
     body.tenant = input.tenantInline;
   } else if (input.tenant) {

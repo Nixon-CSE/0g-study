@@ -185,6 +185,7 @@ export class AgentRuntime {
     let failure: unknown = null;
     let usageTokens = 0;
     const reqCtx: RequestContext = { studentId: msg.studentId, calls: [] };
+    if (msg.studentId && msg.excludeUploadIds?.length) reqCtx.excludeUploadIds = msg.excludeUploadIds;
     // FR9: a student who connected their own 0G account pays for their own calls (and skips the shared cap).
     const ownKeys = msg.studentId ? await loadUserKeys(this.d.loaded.dir, msg.studentId) : null;
     if (ownKeys) reqCtx.zerogApiKey = ownKeys.apiKey;

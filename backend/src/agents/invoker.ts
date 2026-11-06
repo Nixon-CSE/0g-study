@@ -15,6 +15,7 @@ import type { OgStorageClient } from '../storage-0g/index.js';
 import { decryptAgentBundle } from './inft-decrypt.js';
 import { writeAudit } from '../audit/log.js';
 import { retrieveKnowledgeBlock } from './kb-rag.js';
+import { uploadIdsIn } from './upload-markers.js';
 
 // ---------------------------------------------------------------------------
 // INFT invocation (bundle decrypt)
@@ -185,6 +186,7 @@ export async function startStreamingInvocation(
         chatId,
         text: textForAgent,
         studentId: studentIdOf(ctx.userMessage),
+        excludeUploadIds: uploadIdsIn(ctx.userMessage.content),
         tenant: tenantInline ? undefined : agent.slug,
         tenantInline,
         envOverride,
@@ -233,6 +235,7 @@ export async function runInvocation(ctx: InvocationContext, agents: AgentDoc[]):
         chatId,
         text: textForAgent,
         studentId: studentIdOf(ctx.userMessage),
+        excludeUploadIds: uploadIdsIn(ctx.userMessage.content),
         tenant: agent.slug,
       });
       const persisted = await insertMessage(ctx.db, {
@@ -310,6 +313,7 @@ export async function runCascade(ctx: CascadeContext): Promise<MessageDoc[]> {
     return runInvocationLinked({
       db: ctx.db, channel: ctx.channel, parent: ctx.rootMessage, agents: direct,
       hop: 1, rootId: ctx.rootMessage._id, studentId: studentIdOf(ctx.rootMessage), envOverride,
+      excludeUploadIds: uploadIdsIn(ctx.rootMessage.content),
       inftDeps: ctx.inftDeps, serverWallet,
     });
   }
@@ -339,6 +343,7 @@ export async function runCascade(ctx: CascadeContext): Promise<MessageDoc[]> {
     const replies = await runInvocationLinked({
       db: ctx.db, channel: ctx.channel, parent: next.parentMessage, agents: [next.agent],
       hop: next.hop, rootId: ctx.rootMessage._id, studentId: studentIdOf(ctx.rootMessage), envOverride,
+      excludeUploadIds: uploadIdsIn(ctx.rootMessage.content),
       inftDeps: ctx.inftDeps, serverWallet,
     });
     totalInvocations++;
@@ -487,6 +492,8 @@ async function runInvocationLinked(args: {
   rootId: ObjectId;
   /** Human who started the cascade (study state is per user). */
   studentId?: string;
+  /** `[[upload:…]]` ids in the cascade root (the human's message): every hop's recall skips them. */
+  excludeUploadIds?: string[];
   /** Per-request env overrides forwarded to the agent (e.g. DEPLOYER_PRIVATE_KEY for 0G inference). */
   envOverride?: Record<string, string>;
   /** INFT bundle decryption deps when invoking token-backed agents. */
@@ -546,6 +553,7 @@ async function runInvocationLinked(args: {
         chatId,
         text,
         studentId: args.studentId,
+        excludeUploadIds: args.excludeUploadIds,
         tenant: tenantInline ? undefined : agent.slug,
         tenantInline,
         envOverride: args.envOverride,
@@ -570,6 +578,7 @@ Your response (as @${agent.slug}):`;
           chatId,
           text: retryText,
           studentId: args.studentId,
+          excludeUploadIds: args.excludeUploadIds,
           tenant: tenantInline ? undefined : agent.slug,
           tenantInline,
           envOverride: args.envOverride,

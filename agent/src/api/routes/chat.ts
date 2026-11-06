@@ -1,4 +1,4 @@
-import { isSafeId } from '../../study/store.js';
+import { isSafeId, UPLOAD_ID } from '../../study/store.js';
 import { ADMIN_HEADER, tokenMatches } from '../admin-auth.js';
 import { log } from '../../util/logger.js';
 import { Hono } from 'hono';
@@ -38,15 +38,31 @@ const TenantPayloadSchema = z.object({
  *     (same rule as admin-auth, so a web page cannot impersonate a student on localhost).
  * Otherwise the id is dropped and the turn runs with no student (study tools return ok:false).
  */
-export function trustedStudentId(
-  raw: unknown,
-  req: { adminToken?: string; origin?: string; selfOrigin: string },
-): string | undefined {
-  if (!isSafeId(raw)) return undefined;
+export interface CallerInfo { adminToken?: string; origin?: string; selfOrigin: string }
+
+/** The backend (admin token) in deployments; same-origin / server-to-server in local dev. */
+export function isTrustedCaller(req: CallerInfo): boolean {
   const token = process.env.AGENT_ADMIN_TOKEN;
-  if (token) return tokenMatches(req.adminToken, token) ? raw : undefined;
-  if (req.origin && req.origin !== req.selfOrigin) return undefined;
-  return raw;
+  if (token) return tokenMatches(req.adminToken, token);
+  return !(req.origin && req.origin !== req.selfOrigin);
+}
+
+export function trustedStudentId(raw: unknown, req: CallerInfo): string | undefined {
+  if (!isSafeId(raw)) return undefined;
+  return isTrustedCaller(req) ? raw : undefined;
+}
+
+export const MAX_EXCLUDE_UPLOADS = 20;
+
+/**
+ * `excludeUploadIds`: the uploads of the message being answered (the backend parses the cascade root's
+ * `[[upload:…]]` markers). recall_notes skips them so today's photo is never presented as an earlier
+ * note. Same trust rule as `studentId`; from anyone else it is ignored. Invalid ids are dropped.
+ */
+export function trustedExcludeUploadIds(raw: unknown, req: CallerInfo): string[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0 || !isTrustedCaller(req)) return undefined;
+  const ids = [...new Set(raw.filter((x): x is string => typeof x === 'string' && UPLOAD_ID.test(x)))].slice(0, MAX_EXCLUDE_UPLOADS);
+  return ids.length ? ids : undefined;
 }
 
 export function chatRoutes(web: WebChatAdapter, publicDir: string) {
@@ -77,13 +93,16 @@ export function chatRoutes(web: WebChatAdapter, publicDir: string) {
       }
     }
 
-    const studentId = trustedStudentId(body.studentId, {
+    const caller: CallerInfo = {
       adminToken: c.req.header(ADMIN_HEADER),
       origin: c.req.header('origin'),
       selfOrigin: new URL(c.req.url).origin,
-    });
+    };
+    const studentId = trustedStudentId(body.studentId, caller);
     if (body.studentId !== undefined && !studentId) log.warn('chat/message: untrusted studentId dropped');
-    const streamId = await web.enqueue(userId, text, tenantSlug, envOverride ?? undefined, tenantInline, studentId);
+    const excludeUploadIds = trustedExcludeUploadIds(body.excludeUploadIds, caller);
+    if (body.excludeUploadIds !== undefined && !excludeUploadIds) log.warn('chat/message: excludeUploadIds dropped');
+    const streamId = await web.enqueue(userId, text, tenantSlug, envOverride ?? undefined, tenantInline, studentId, excludeUploadIds);
     return c.json({ streamId });
   });
 

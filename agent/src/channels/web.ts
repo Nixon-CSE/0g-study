@@ -2,7 +2,7 @@ import type { ChannelAdapter, InboundMessage, TenantPayload } from './base.js';
 import { EventEmitter } from 'node:events';
 
 export interface WebChatBus {
-  enqueue(userId: string, text: string, tenant?: string, envOverride?: Record<string, string>, tenantInline?: TenantPayload, studentId?: string): Promise<string>;
+  enqueue(userId: string, text: string, tenant?: string, envOverride?: Record<string, string>, tenantInline?: TenantPayload, studentId?: string, excludeUploadIds?: string[]): Promise<string>;
   subscribe(streamId: string, write: (chunk: string, done?: boolean) => void): () => void;
   finalize(streamId: string): void;
 }
@@ -23,7 +23,7 @@ export class WebChatAdapter implements ChannelAdapter, WebChatBus {
   async start(onMessage: (m: InboundMessage) => Promise<void>) { this.handler = onMessage; }
   async stop() { this.streams.clear(); }
 
-  async enqueue(userId: string, text: string, tenant?: string, envOverride?: Record<string, string>, tenantInline?: TenantPayload, studentId?: string): Promise<string> {
+  async enqueue(userId: string, text: string, tenant?: string, envOverride?: Record<string, string>, tenantInline?: TenantPayload, studentId?: string, excludeUploadIds?: string[]): Promise<string> {
     if (!this.handler) throw new Error('web adapter not started');
     const streamId = `${userId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
     const emitter = new EventEmitter();
@@ -34,6 +34,7 @@ export class WebChatAdapter implements ChannelAdapter, WebChatBus {
         chatId: userId,
         userId,
         studentId,
+        excludeUploadIds,
         text,
         tenant,
         tenantInline,

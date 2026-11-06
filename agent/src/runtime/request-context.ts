@@ -15,6 +15,12 @@ export interface RequestContext {
    * this turn are billed to it instead of the shared ZEROG_API_KEY. Never logged, never sent to a browser.
    */
   zerogApiKey?: string;
+  /**
+   * Uploads that belong to the message being answered (the cascade root's `[[upload:…]]` markers), set
+   * only by a trusted caller (the backend). recall_notes never returns them: they are today's notes,
+   * not earlier ones.
+   */
+  excludeUploadIds?: string[];
   /** Cards saved by a successful `study_log` in this turn; the runtime attaches them to the reply. */
   flashcards?: { q: string; a: string }[];
 }

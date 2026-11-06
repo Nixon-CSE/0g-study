@@ -22,6 +22,8 @@ export interface InboundMessage {
   userId: string;
   /** Human student behind this turn (study streaks, daily cap). Distinct from userId, which keys the session. */
   studentId?: string;
+  /** Uploads of the message being answered; recall_notes skips them. Only set for trusted callers. */
+  excludeUploadIds?: string[];
   text: string;
   /** Legacy slug-based tenant lookup against the registry. */
   tenant?: string;
