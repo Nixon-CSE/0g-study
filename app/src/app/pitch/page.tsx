@@ -326,8 +326,8 @@ export default function PitchPage() {
             </h2>
             <p className="mt-6 max-w-3xl text-base text-[var(--muted)]">
               Chat and vision inference go through 0G&apos;s OpenAI-compatible router. Each call returns a
-              request ID, and the pod shows it on the reply. Study-memory embeddings run on a TEE-private
-              provider; the chat and vision models we use are not TEE-private.
+              request ID, and the pod shows it on the reply. Study-memory embeddings and the Examiner run on a
+              TEE-private provider; the Tutor and vision models we use are not TEE-private.
             </p>
 
             <div className="mt-10 grid grid-cols-2 gap-5">

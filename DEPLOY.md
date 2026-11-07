@@ -70,6 +70,7 @@ Add these on each service, then deploy. **Must match** means the value has to be
 | `RAILWAY_DOCKERFILE_PATH` | `docker/Dockerfile` (step 2) | |
 | `ZEROG_API_KEY` | the new `sk-` key from step 1 | |
 | `ZEROG_LLM_MODEL` | `deepseek-v4.1-flash` | |
+| `ZEROG_EXAMINER_MODEL` | unset (the tenant's `0gm-1.0-35b-a3b`) | optional: overrides the Examiner's model, e.g. `deepseek-v4.1-flash` if 0gm is down |
 | `ZEROG_VISION_MODEL` | `gemini-2.5-flash` | |
 | `ZEROG_EMBED_MODEL` | `qwen3-embedding-0.6b` | |
 | `STUDY_JWT_SECRET` | from step 1 | backend `JWT_SECRET` |

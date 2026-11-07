@@ -165,3 +165,28 @@ describe("0G's own request id (x_0g_trace)", () => {
     expect(drainRouterCalls().map((c) => c.requestId)).toEqual([UUID, UUID]);
   });
 });
+
+import { readFileSync } from 'node:fs';
+import { tenantLlm } from '../src/providers/zerog-router.js';
+describe('Examiner model', () => {
+  const baked = JSON.parse(readFileSync(new URL('../data/tenants.json', import.meta.url), 'utf8')) as { slug: string; llm: { model?: string } }[];
+  const model = (slug: string) => baked.find((t) => t.slug === slug)?.llm.model;
+
+  it('the image ships the Examiner on 0gm-1.0; the Note Reader and Tutor keep the default', () => {
+    expect(model('study-examiner')).toBe('0gm-1.0-35b-a3b');
+    expect(model('study-tutor')).toBeUndefined();
+    expect(model('study-note-reader')).toBeUndefined();
+  });
+
+  it('ZEROG_EXAMINER_MODEL overrides the Examiner and nobody else', () => {
+    const llm = { provider: 'zerog-router', model: '0gm-1.0-35b-a3b' };
+    expect(tenantLlm('study-examiner', llm, 'deepseek-v4.1-flash')).toEqual({ ...llm, model: 'deepseek-v4.1-flash' });
+    expect(tenantLlm('study-examiner', llm, '  ')).toBe(llm);
+    expect(tenantLlm('study-examiner', llm, undefined)).toBe(llm);
+    expect(tenantLlm('study-tutor', {}, 'deepseek-v4.1-flash')).toEqual({});
+  });
+
+  it('the badge marker carries the 0gm id', () => {
+    expect(formatRequestIdMarker([{ requestId: 'a', e2ee: 'sealed', model: '0gm-1.0-35b-a3b' }])).toBe('\n\n⟦0g:a~sealed~0gm-1.0-35b-a3b⟧');
+  });
+});

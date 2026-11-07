@@ -13,9 +13,13 @@ import { currentContext } from '../runtime/request-context.js';
  */
 export const ZEROG_ROUTER_URL = 'https://router-api.0g.ai/v1';
 // Verified 2026-11-06 with scripts/smoke-router.mjs + a tool-call probe: chat, tools and
-// chat_template_kwargs all accepted. (The earlier default, 0gm-1.0-35b-a3b, now returns 404 model_not_found.)
+// chat_template_kwargs all accepted. 0gm-1.0-35b-a3b has come and gone (404, 502); back on 2026-11-07, Examiner only.
 export const DEFAULT_ROUTER_MODEL = 'deepseek-v4.1-flash';
 // Vision: transcribed a printed notes photo faithfully (data URL in image_url). No tool calls — not needed.
+/** ZEROG_EXAMINER_MODEL beats the tenant's llm.model: one env change moves the Examiner off its model. */
+export function tenantLlm<T extends { model?: string }>(slug: string | undefined, llm: T, examinerModel = process.env.ZEROG_EXAMINER_MODEL): T {
+  return slug === 'study-examiner' && examinerModel?.trim() ? { ...llm, model: examinerModel.trim() } : llm;
+}
 export const DEFAULT_VISION_MODEL = 'qwen2.5-vl-72b-instruct';
 export const DEFAULT_IMAGE_MODEL = 'z-image';
 // Embeddings (study memory / RAG): verified 2026-11-06 with scripts/smoke-embeddings.mjs: 1024-dim,

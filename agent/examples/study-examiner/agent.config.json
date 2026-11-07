@@ -2,7 +2,8 @@
   "name": "Examiner",
   "id": "study-examiner",
   "llm": {
-    "provider": "zerog-router"
+    "provider": "zerog-router",
+    "model": "0gm-1.0-35b-a3b"
   },
   "channels": {
     "telegram": {

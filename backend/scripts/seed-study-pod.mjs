@@ -34,7 +34,7 @@ const ADMIN = process.env.AGENT_ADMIN_TOKEN ? { 'x-agent-admin-token': process.e
 const POD = [
   { slug: 'study-note-reader', dir: 'study-note-reader', name: 'Note Reader', description: 'Reads a photo of your notes with 0G vision and turns it into clean notes plus key concepts.', tags: ['study', 'vision'] },
   { slug: 'study-tutor', dir: 'study-tutor', name: 'Tutor', description: 'Explains the hardest ideas in plain language and writes flashcards that count toward your streak.', tags: ['study'] },
-  { slug: 'study-examiner', dir: 'study-examiner', name: 'Examiner', description: 'Quizzes you one question at a time and grades your answers.', tags: ['study'] },
+  { slug: 'study-examiner', dir: 'study-examiner', name: 'Examiner', description: 'Quizzes you one question at a time and grades your answers.', tags: ['study'], model: process.env.ZEROG_EXAMINER_MODEL || '0gm-1.0-35b-a3b' },
 ];
 
 function arg(name) {
@@ -53,7 +53,7 @@ async function upsertTenant(p) {
   const read = (f) => fs.readFileSync(path.join(examples, p.dir, f), 'utf8');
   const body = {
     slug: p.slug, name: p.name, description: p.description, tags: p.tags,
-    soul: read('SOUL.md'), agents: read('AGENTS.md'), llm: { provider: 'zerog-router' },
+    soul: read('SOUL.md'), agents: read('AGENTS.md'), llm: { provider: 'zerog-router', ...(p.model ? { model: p.model } : {}) },
   };
   const post = await fetch(`${AGENT_REACHABLE_URL}/tenants`, {
     method: 'POST', headers: { 'content-type': 'application/json', ...ADMIN }, body: JSON.stringify(body),

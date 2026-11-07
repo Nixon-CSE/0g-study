@@ -1,7 +1,7 @@
 import { generateText, type CoreMessage, type LanguageModelV1, type Tool } from 'ai';
 import { buildSystemPrompt } from './prompt-builder.js';
 import { createChatModel } from './llm-client.js';
-import { callsTodayFor, modelValue } from '../providers/zerog-router.js';
+import { callsTodayFor, modelValue, tenantLlm } from '../providers/zerog-router.js';
 import { runWithContext, type RequestContext } from './request-context.js';
 import { loadUserKeys, ownCreditsOutLine } from '../study/zerog-account.js';
 import { hashEnv } from './env-hash.js';
@@ -101,10 +101,10 @@ export class AgentRuntime {
     const tenantEnv = (tenant as Tenant | null)?.env ?? {};
     const override = envOverride ?? {};
     const effectiveEnv = { ...tenantEnv, ...override };
-    const tenantLlm = tenant?.llm ?? {};
+    const llmOverrides = tenantLlm(tenant?.slug, tenant?.llm ?? {});
     const hasOverrides =
       Object.keys(effectiveEnv).length > 0 ||
-      Object.keys(tenantLlm).length > 0;
+      Object.keys(llmOverrides).length > 0;
     if (!hasOverrides) return this.d.model;
 
     const slug = tenant?.slug ?? '_default';
@@ -114,7 +114,7 @@ export class AgentRuntime {
 
     const mergedCfg = {
       ...this.d.loaded.config,
-      llm: { ...this.d.loaded.config.llm, ...tenantLlm },
+      llm: { ...this.d.loaded.config.llm, ...llmOverrides },
     };
     const resolver = (k: string) => (effectiveEnv[k] !== undefined ? effectiveEnv[k] : process.env[k]);
     try {

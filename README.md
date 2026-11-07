@@ -10,7 +10,7 @@
 |---|---|
 | **Prize target** | ETHGlobal Mumbai — 0G "Build with 0G Private Computer" |
 | **Inference** | 0G Private Computer router (`https://router-api.0g.ai/v1`), OpenAI-compatible |
-| **Private (TEE) provider** | Embeddings only (`qwen3-embedding-0.6b`, TeeML/TDX). Chat (`deepseek-v4.1-flash`, served via aliyun) and vision (`gemini-2.5-flash`) are not TEE-private. |
+| **Private (TEE) provider** | Embeddings (`qwen3-embedding-0.6b`) and the Examiner (`0gm-1.0-35b-a3b`), both TeeML/TDX. The Tutor (`deepseek-v4.1-flash`, served via aliyun) and vision (`gemini-2.5-flash`) are not TEE-private. |
 | **Contract** | `BonFireAgentINFT` at [`0x151819ebc4435937f704FbB726DE6f99Bda262Bb`](https://chainscan-galileo.0g.ai/address/0x151819ebc4435937f704FbB726DE6f99Bda262Bb) on 0G Galileo testnet (chainID 16602) |
 
 ---
@@ -70,6 +70,7 @@ Code: [agent/src/rag/](agent/src/rag/) (`chunk`, `embed`, `store`, `search`, `no
 | Use | Default | Checked |
 |---|---|---|
 | Chat + tool calls (`ZEROG_LLM_MODEL`) | `deepseek-v4.1-flash` | chat, tool calling, `chat_template_kwargs` |
+| Examiner (`ZEROG_EXAMINER_MODEL`, else the tenant's `llm.model`) | `0gm-1.0-35b-a3b`, 0G's native model | chat, tool calling, the Examiner's rules (2026-11-07) |
 | Vision (`ZEROG_VISION_MODEL`) | code default `qwen2.5-vl-72b-instruct`; the local demo's `agent/.env` runs **`gemini-2.5-flash`** (on 2026-11-06 `gemini-2.5-flash-lite` and `qwen2.5-vl-72b-instruct` returned 401 from 0G's upstream provider) | faithful transcription of a printed notes photo sent as a data URL |
 | Embeddings (`ZEROG_EMBED_MODEL`) | `qwen3-embedding-0.6b` | 1024-dim, batching, 32k-token context, request ID in `x-request-id` (`scripts/smoke-embeddings.mjs`) |
 
@@ -78,10 +79,11 @@ Code: [agent/src/rag/](agent/src/rag/) (`chunk`, `embed`, `store`, `search`, `no
 | Model | Router metadata | Response header `x-0g-e2ee` | `x_0g_trace.provider_identity` | pc.0g.ai |
 |---|---|---|---|---|
 | `qwen3-embedding-0.6b` (embeddings) | `TeeML`, TDX | `sealed` (seen on a 502: the provider was down that day) | — | Private |
+| `0gm-1.0-35b-a3b` (Examiner, checked 2026-11-07) | `TeeML`, TDX | `sealed` | — | badge not checked |
 | `deepseek-v4.1-flash` (chat) | no verifiability | `none` | `aliyun` | not Private |
 | `gemini-2.5-flash` (vision) | no verifiability | `none` | `anonymous2` | badge not checked |
 
-Private chat models do exist (`glm-5.3` and `0gm-1.0-35b-a3b`, both `TeeML` with tool calling; the second also accepts images). We have not switched to them: it is a cost/latency/quality decision left to the maintainer, and `0gm-1.0-35b-a3b` returned 502 on that day. Each request ID on a reply's badge shows its own `x-0g-e2ee` value in the tooltip, so you can see per call which ones were sealed.
+The Examiner runs on `0gm-1.0-35b-a3b` since 2026-11-07. The Note Reader and Tutor keep their models; `glm-5.3` is another `TeeML` chat model with tool calling. To move the Examiner off 0gm, set `ZEROG_EXAMINER_MODEL` on the agent and restart. Each request ID on a reply's badge shows its own `x-0g-e2ee` value in the tooltip, so you can see per call which ones were sealed.
 
 Model availability changes; list current models with `node agent/scripts/smoke-router.mjs` (or `GET /v1/models`). Router models "think" by default, which burns `max_tokens`; the provider turns thinking off for open-weight families (qwen, deepseek, glm, kimi, mimo, 0gm) with `chat_template_kwargs`, and for Gemini with `extra_body.google.thinking_config.thinking_budget: 0` (gemini-2.5-pro ignores it; without it, gemini-2.5-flash's thinking could use up `read_notes`' 1,500 tokens and cut the transcription off). Other models are left untouched because they reject the extra field.
 
