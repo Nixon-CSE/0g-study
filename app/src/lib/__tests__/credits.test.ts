@@ -20,7 +20,7 @@ describe("connecting a pc.0g.ai account", () => {
   });
   it("the call to action and direct links", async () => {
     const { CONNECT_CTA, API_KEYS_URL, MANAGEMENT_KEYS_URL } = await import("../credits");
-    expect(CONNECT_CTA).toBe("Use your daily iAI credits →");
+    expect(CONNECT_CTA).toBe("⚡ Use your daily iAI credits");
     expect(API_KEYS_URL).toBe("https://pc.0g.ai/dashboard/api-keys");
     expect(MANAGEMENT_KEYS_URL).toBe("https://pc.0g.ai/dashboard/management-keys");
   });
@@ -44,7 +44,7 @@ describe("balance display (shapes from the real account, 2026-11-06)", () => {
   });
   it("names the number honestly: deposits appear only when there are some", async () => {
     const { balanceName, balanceDetails } = await import("../credits");
-    expect(balanceName(usd)).toBe("0G credits");
+    expect(balanceName(usd)).toBe("iAI / 0G credits");
     expect(balanceDetails(usd)).toEqual(["0G credits (incl. daily iAI): $0.4375"]);
     const both = { ...usd, available: "1437504", deposit: "1000000" };
     expect(balanceName(both)).toBe("0G balance");

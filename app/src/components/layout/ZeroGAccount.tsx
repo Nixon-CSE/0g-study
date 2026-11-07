@@ -143,7 +143,7 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
                 {balanceName(balance)}: {formatMoney(balance.currency, shown)}
                 <span className="hidden min-[1100px]:inline"> · resets in {untilReset()}</span>
               </>
-            ) : "0G credits: —"}
+            ) : "iAI / 0G credits: —"}
           </button>
           {balance && drop > 0 && (
             <span className="hidden min-[520px]:inline tabular-nums" style={{ color: "var(--bf-banana)" }}>−{formatMoney(balance.currency, drop)}</span>
@@ -164,7 +164,7 @@ export default function ZeroGAccount({ refreshKey }: { refreshKey: number }) {
           )}
         </span>
       ) : (
-        <button type="button" onClick={() => setOpen(true)} className="underline cursor-pointer flex-shrink-0" style={{ color: "rgba(255,255,255,0.85)" }}>
+        <button type="button" onClick={() => setOpen(true)} className="cursor-pointer flex-shrink-0 rounded-full px-2 font-semibold" style={{ background: "var(--bf-banana)", color: "#1a1a1a" }}>
           {CONNECT_CTA}
         </button>
       )}

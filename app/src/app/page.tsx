@@ -101,6 +101,9 @@ export default function LandingPage() {
             Photograph your notes. A Note Reader, a Tutor and an Examiner turn them into an explanation, flashcards and a
             quiz, powered by 0G Private Computer.
           </p>
+          <p className="mt-3 text-[14px] font-semibold">
+            Pay with your daily iAI credits — they expire at 00:00 UTC anyway.
+          </p>
           <p className="tag mt-3 text-[12px]">
             Come back tomorrow to keep your streak. Every reply shows the 0G request ID that produced it.
           </p>

@@ -3,7 +3,7 @@ export function formatCredits(balance0G: number): string {
   return balance0G >= 1 ? balance0G.toFixed(3) : balance0G.toPrecision(3);
 }
 
-export const CONNECT_CTA = "Use your daily iAI credits →";
+export const CONNECT_CTA = "⚡ Use your daily iAI credits";
 export const API_KEYS_URL = "https://pc.0g.ai/dashboard/api-keys";
 export const MANAGEMENT_KEYS_URL = "https://pc.0g.ai/dashboard/management-keys";
 
@@ -39,7 +39,7 @@ export function formatMoney(currency: Currency, micro: number, decimals = 4): st
 
 /** The status bar's name for the number: deposits count too, so it is only "credits" without any. */
 export function balanceName(b: Pick<AccountBalance, "deposit">): string {
-  return toMicro("usd", b.deposit) > 0 ? "0G balance" : "0G credits";
+  return toMicro("usd", b.deposit) > 0 ? "0G balance" : "iAI / 0G credits";
 }
 
 /** Popover lines. Deposits show only when there are some. */
